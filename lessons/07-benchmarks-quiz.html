@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>07 · Take the Benchmarks Yourself — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 07</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 07 · Interactive</span>
+  <h1>Take the benchmarks yourself, first</h1>
+  <p class="lede">Before you ask a 1.5B model to answer these, answer them yourself. It's the fastest way to build intuition for what these scores actually mean — and to notice which question <em>types</em> are genuinely hard even for you.</p>
+
+  <div class="card" style="margin-bottom:28px">
+    <h3 style="margin-top:0">The benchmark families behind these questions</h3>
+    <table>
+      <tr><th>Benchmark</th><th>Style</th></tr>
+      <tr><td><strong>MMLU</strong></td><td>Broad factual/academic knowledge, 4-way multiple choice</td></tr>
+      <tr><td><strong>ARC</strong></td><td>Grade-school science reasoning, multiple choice</td></tr>
+      <tr><td><strong>HellaSwag</strong></td><td>"What happens next" commonsense completion</td></tr>
+      <tr><td><strong>GSM8K</strong></td><td>Grade-school math word problems</td></tr>
+    </table>
+  </div>
+
+  <div id="quiz"></div>
+
+  <div class="card" style="border-color:var(--accent)">
+    <h3>Now compare against the model</h3>
+    <p style="font-size:0.92rem">Ask your running model (from Lesson 05) each question exactly as worded below, and see if it agrees with you — and with the answer key. This is literally what an evaluation harness automates at scale: thousands of questions like these, scored automatically.</p>
+    <pre><code>python -m mlx_lm.generate \
+  --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+  --prompt "Question: Which of these is a renewable energy source? A) Coal B) Natural gas C) Solar power D) Petroleum. Answer with just the letter." \
+  --max-tokens 10</code></pre>
+  </div>
+
+  <footer class="nextprev">
+    <a href="06-perplexity-explained.html"><span class="dir">← Previous</span>Perplexity, hands-on</a>
+    <a href="08-results-dashboard.html">Next: Your results dashboard →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+<script>
+  const QUESTIONS = [
+    {
+      tag: "MMLU-style · geography",
+      q: "What is the capital of Australia?",
+      opts: ["Sydney", "Melbourne", "Canberra", "Perth"],
+      correct: 2,
+      explain: "Canberra was purpose-built as the capital in 1913 as a compromise between rival cities Sydney and Melbourne — a classic 'gotcha' fact benchmark writers love, since the two largest cities are tempting wrong answers."
+    },
+    {
+      tag: "MMLU-style · elementary math",
+      q: "What is 15% of 200?",
+      opts: ["20", "30", "40", "50"],
+      correct: 1,
+      explain: "15% of 200 = 0.15 × 200 = 30."
+    },
+    {
+      tag: "HellaSwag-style · commonsense completion",
+      q: "A man is standing at the edge of a diving board. He bounces once, then...",
+      opts: [
+        "walks back down the ladder",
+        "jumps into the pool",
+        "sits down on the board and reads a book",
+        "turns into a bird",
+      ],
+      correct: 1,
+      explain: "HellaSwag scores which continuation is most plausible given everyday physical/social context — diving boards exist for diving, so jumping in is the overwhelmingly likely continuation.",
+    },
+    {
+      tag: "ARC-style · science reasoning",
+      q: "Which of these is a renewable energy source?",
+      opts: ["Coal", "Natural gas", "Solar power", "Petroleum"],
+      correct: 2,
+      explain: "Solar power is replenished continuously by the sun; the other three are finite fossil fuels.",
+    },
+    {
+      tag: "GSM8K-style · math word problem",
+      q: "Sam has 3 boxes with 8 apples each. He gives away 5 apples. How many apples does he have left?",
+      opts: ["17", "19", "21", "24"],
+      correct: 1,
+      explain: "3 × 8 = 24 apples total. 24 − 5 = 19 remaining. GSM8K questions chain 2–3 arithmetic steps like this.",
+    },
+  ];
+
+  let answered = 0, correct = 0;
+  const quizEl = document.getElementById("quiz");
+
+  QUESTIONS.forEach((item, qi) => {
+    const box = document.createElement("div");
+    box.className = "card quiz-q";
+    box.innerHTML = `
+      <span class="badge">${item.tag}</span>
+      <h3>${qi + 1}. ${item.q}</h3>
+      <div class="opts"></div>
+      <div class="quiz-explain" id="explain${qi}">${item.explain}</div>
+    `;
+    const optsEl = box.querySelector(".opts");
+    item.opts.forEach((opt, oi) => {
+      const btn = document.createElement("button");
+      btn.className = "quiz-opt";
+      btn.textContent = String.fromCharCode(65 + oi) + ")  " + opt;
+      btn.addEventListener("click", () => {
+        if (btn.dataset.locked) return;
+        [...optsEl.children].forEach((b) => (b.dataset.locked = "1"));
+        if (oi === item.correct) {
+          btn.classList.add("correct");
+          correct++;
+        } else {
+          btn.classList.add("wrong");
+          optsEl.children[item.correct].classList.add("correct");
+        }
+        document.getElementById(`explain${qi}`).style.display = "block";
+        answered++;
+        updateScore();
+      });
+      optsEl.appendChild(btn);
+    });
+    quizEl.appendChild(box);
+  });
+
+  const scoreEl = document.createElement("div");
+  scoreEl.className = "quiz-score";
+  quizEl.appendChild(scoreEl);
+
+  function updateScore() {
+    scoreEl.textContent = `Your score: ${correct} / ${answered} answered (${QUESTIONS.length} total)`;
+  }
+  updateScore();
+</script>
+</body>
+</html>

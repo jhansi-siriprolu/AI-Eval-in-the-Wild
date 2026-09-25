@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>08 · Your Results Dashboard — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 08</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 08 · Your real results</span>
+  <h1>Your evaluation results dashboard</h1>
+  <p class="lede">Run the harness, and this page will chart your actual numbers. Until then, it shows clearly-labeled sample data so you know what to expect.</p>
+
+  <h2>Step 1 — run the real evaluation</h2>
+  <pre><code>bash scripts/04_run_eval_harness.sh</code></pre>
+  <p style="font-size:0.9rem">This installs <code>lm-eval</code> if needed and runs a handful of benchmark tasks against your model with a small sample limit (fast enough for a laptop — a few minutes rather than hours). It writes raw output to <code>results/raw_eval_output.json</code>.</p>
+
+  <h2>Step 2 — shape it for this dashboard</h2>
+  <pre><code>python scripts/05_export_results.py</code></pre>
+  <p style="font-size:0.9rem">Converts the raw harness output into <code>results/results.json</code> in the simple shape this page reads. Then either:</p>
+  <ul style="font-size:0.9rem">
+    <li>Serve the folder locally so the chart auto-loads it: <code>python -m http.server 8000</code> then open <code>http://localhost:8000/lessons/08-results-dashboard.html</code>, or</li>
+    <li>Just reload this file directly — if auto-load can't reach the JSON (browsers block <code>fetch</code> on local files), paste its contents into the box below instead.</li>
+  </ul>
+
+  <div id="statusMsg" class="card" style="font-size:0.88rem"></div>
+
+  <div class="card">
+    <h3>Paste your results.json here if auto-load didn't work</h3>
+    <textarea id="pasteJson" style="width:100%;min-height:90px;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:10px;font-family:'SF Mono',Menlo,monospace;font-size:0.82rem" placeholder='{"model":"...","tasks":{"mmlu":{"acc":0.42},...}}'></textarea>
+    <button id="renderPasted" style="margin-top:10px">Render this data</button>
+  </div>
+
+  <h2 id="chartHeading">Scores</h2>
+  <canvas id="chart" width="800" height="320" style="width:100%;max-width:800px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px"></canvas>
+  <div class="grid" id="cards"></div>
+
+  <footer class="nextprev">
+    <a href="07-benchmarks-quiz.html"><span class="dir">← Previous</span>Take the benchmarks yourself</a>
+    <span></span>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+<script>
+  const SAMPLE_DATA = {
+    model: "mlx-community/Qwen2.5-1.5B-Instruct-4bit  (SAMPLE DATA — not yet your real run)",
+    date: "sample",
+    tasks: {
+      mmlu: { acc: 0.47, baseline_random: 0.25 },
+      hellaswag: { acc: 0.55, baseline_random: 0.25 },
+      arc_easy: { acc: 0.68, baseline_random: 0.25 },
+      arc_challenge: { acc: 0.41, baseline_random: 0.25 },
+      gsm8k: { acc: 0.32, baseline_random: 0.0 },
+    },
+  };
+
+  function draw(data) {
+    const heading = document.getElementById("chartHeading");
+    const isSample = !!(data.date === "sample");
+    heading.textContent = isSample ? "Scores (sample data)" : `Scores — ${data.model}`;
+
+    document.getElementById("statusMsg").innerHTML = isSample
+      ? `<span class="badge warn">Showing sample data</span> Run the scripts above, then reload this page (ideally via <code>python -m http.server</code>) to see your real numbers.`
+      : `<span class="badge good">Real results loaded</span> Model: <code>${data.model}</code>${data.date ? " · " + data.date : ""}`;
+
+    const tasks = Object.entries(data.tasks);
+    const canvas = document.getElementById("chart");
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const padL = 130, padR = 30, padT = 20, padB = 30;
+    const w = canvas.width - padL - padR;
+    const h = canvas.height - padT - padB;
+    const barH = h / tasks.length - 14;
+
+    const textColor = getComputedStyle(document.body).getPropertyValue("--text").trim() || "#e8eaf0";
+    const dimColor = getComputedStyle(document.body).getPropertyValue("--text-dim").trim() || "#9aa2b1";
+    const accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#7c9eff";
+    const border = getComputedStyle(document.body).getPropertyValue("--border").trim() || "#2a2f3a";
+
+    // axis
+    ctx.strokeStyle = border;
+    ctx.beginPath();
+    ctx.moveTo(padL, padT);
+    ctx.lineTo(padL, padT + h);
+    ctx.lineTo(padL + w, padT + h);
+    ctx.stroke();
+
+    tasks.forEach(([name, vals], i) => {
+      const y = padT + i * (h / tasks.length) + 7;
+      const acc = vals.acc ?? 0;
+      const barW = w * acc;
+
+      ctx.fillStyle = dimColor;
+      ctx.font = "13px -apple-system, sans-serif";
+      ctx.textAlign = "right";
+      ctx.fillText(name, padL - 12, y + barH / 2 + 4);
+
+      ctx.fillStyle = accent;
+      ctx.fillRect(padL, y, barW, barH);
+
+      if (vals.baseline_random !== undefined) {
+        const bx = padL + w * vals.baseline_random;
+        ctx.strokeStyle = "#ff6b6b";
+        ctx.setLineDash([4, 3]);
+        ctx.beginPath();
+        ctx.moveTo(bx, y - 2);
+        ctx.lineTo(bx, y + barH + 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+
+      ctx.fillStyle = textColor;
+      ctx.textAlign = "left";
+      ctx.fillText((acc * 100).toFixed(1) + "%", padL + barW + 8, y + barH / 2 + 4);
+    });
+
+    ctx.fillStyle = dimColor;
+    ctx.font = "11px -apple-system, sans-serif";
+    ctx.textAlign = "left";
+    ctx.fillText("dashed red = random-guessing baseline", padL, padT + h + 24);
+
+    // cards
+    const cardsEl = document.getElementById("cards");
+    cardsEl.innerHTML = tasks
+      .map(([name, vals]) => `
+        <div class="card">
+          <div class="badge">${name}</div>
+          <h3 style="margin:8px 0 0">${((vals.acc ?? 0) * 100).toFixed(1)}%</h3>
+          <p style="font-size:0.82rem;color:var(--text-dim);margin:4px 0 0">vs. ${((vals.baseline_random ?? 0) * 100).toFixed(0)}% random baseline</p>
+        </div>`)
+      .join("");
+  }
+
+  async function loadReal() {
+    try {
+      const res = await fetch("../results/results.json", { cache: "no-store" });
+      if (!res.ok) throw new Error("not found");
+      const data = await res.json();
+      draw(data);
+    } catch (e) {
+      draw(SAMPLE_DATA);
+    }
+  }
+
+  document.getElementById("renderPasted").addEventListener("click", () => {
+    try {
+      const data = JSON.parse(document.getElementById("pasteJson").value);
+      draw(data);
+    } catch (e) {
+      alert("That doesn't look like valid JSON yet: " + e.message);
+    }
+  });
+
+  loadReal();
+</script>
+</body>
+</html>

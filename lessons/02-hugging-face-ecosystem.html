@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>02 · The Hugging Face Ecosystem — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 02</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 02</span>
+  <h1>The Hugging Face ecosystem, decoded</h1>
+  <p class="lede">Hugging Face Hub hosts the model you're about to run. Learning to read a repo before downloading it will save you from pulling a 30GB file your Air can't hold.</p>
+
+  <h2>The four things on the Hub you'll touch</h2>
+  <div class="grid">
+    <div class="card"><h3>🗂 Hub</h3><p style="font-size:0.9rem;color:var(--text-dim)">huggingface.co/models — a searchable registry of ~1M+ model repos, each just a git repository of weight files + metadata.</p></div>
+    <div class="card"><h3>📄 Model card</h3><p style="font-size:0.9rem;color:var(--text-dim)">The README.md in every repo. Tells you license, intended use, training data, and (often) benchmark scores.</p></div>
+    <div class="card"><h3>🧮 Datasets</h3><p style="font-size:0.9rem;color:var(--text-dim)">huggingface.co/datasets — where benchmark test sets like MMLU actually live, versioned the same way as models.</p></div>
+    <div class="card"><h3>🧰 Libraries</h3><p style="font-size:0.9rem;color:var(--text-dim)"><code>transformers</code>, <code>huggingface_hub</code>, and community tools like <code>mlx-lm</code> that know how to load these repos.</p></div>
+  </div>
+
+  <h2>Reading a repo name</h2>
+  <p>Model repo names follow <code>{organization}/{model-name}</code>. The model name itself is a dense label — learn to parse it:</p>
+  <pre><code>mlx-community/Qwen2.5-1.5B-Instruct-4bit
+└─────┬──────┘ └┬─┘ └┬─┘ └┬─┘ └───┬────┘ └┬─┘
+  publisher    family  gen  size   variant  quant</code></pre>
+  <table>
+    <tr><th>Piece</th><th>Meaning</th></tr>
+    <tr><td><code>mlx-community</code></td><td>Who converted/published this build — a community org that mirrors popular models into MLX format</td></tr>
+    <tr><td><code>Qwen2.5</code></td><td>Model family and generation, from Alibaba's Qwen team</td></tr>
+    <tr><td><code>1.5B</code></td><td>1.5 billion parameters — directly drives memory use, see Lesson 03</td></tr>
+    <tr><td><code>Instruct</code></td><td>Fine-tuned to follow chat instructions (vs. a raw "base" model that just completes text)</td></tr>
+    <tr><td><code>4bit</code></td><td>Weights quantized to 4 bits each instead of 16/32 — roughly a 4–8x size reduction</td></tr>
+  </table>
+
+  <div class="card">
+    <h3>Base vs. Instruct — pick Instruct</h3>
+    <p style="font-size:0.92rem">A <strong>base</strong> model only predicts "what text comes next" — ask it a question and it might just continue the sentence with more questions. An <strong>Instruct</strong> (or <strong>Chat</strong>) model has been fine-tuned on conversations to actually answer you. Always prefer the Instruct variant for hands-on work.</p>
+  </div>
+
+  <h2>Where quantized builds come from</h2>
+  <p>Most original model releases ship in 16-bit precision (<code>bfloat16</code>/<code>fp16</code>), which is too large and slow for an 8GB laptop. Community orgs re-package the same weights at lower precision for specific runtimes:</p>
+  <table>
+    <tr><th>Org / suffix</th><th>Runtime</th><th>Typical use</th></tr>
+    <tr><td><code>mlx-community/...</code></td><td>Apple MLX</td><td>What this course uses — native Apple Silicon speed</td></tr>
+    <tr><td><code>...-GGUF</code> (e.g. TheBloke, bartowski)</td><td>llama.cpp / Ollama</td><td>Most portable, works on almost anything</td></tr>
+    <tr><td>No suffix, org = original author</td><td>PyTorch / transformers</td><td>Full precision, needs the most RAM</td></tr>
+  </table>
+
+  <h2>Browsing the Hub for yourself</h2>
+  <p>On huggingface.co/models, filter by <strong>Task → Text Generation</strong>, then search <code>mlx-community</code> to see everything already converted for your machine. Each card shows file sizes under the "Files and versions" tab — check that before you commit to a download on limited SSD space.</p>
+
+  <div class="lab">
+    <h3>📝 Lab notebook</h3>
+    <p style="font-size:0.88rem;margin-top:0">Browse the Hub for 2–3 other instruct models under 3B parameters that interest you. Note them here — you'll compare them against Qwen2.5-1.5B later.</p>
+    <textarea data-persist="lesson02-notes" placeholder="e.g. mlx-community/SmolLM2-1.7B-Instruct-4bit — smaller, from Hugging Face's own team..."></textarea>
+    <div class="save-hint">Saved automatically in this browser as you type.</div>
+  </div>
+
+  <footer class="nextprev">
+    <a href="01-intro-model-evaluation.html"><span class="dir">← Previous</span>What evaluation means</a>
+    <a href="03-quantization-memory-calculator.html">Next: Quantization &amp; memory calculator →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+</body>
+</html>

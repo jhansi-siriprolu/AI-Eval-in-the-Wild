@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>04 · Tokenization Playground — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 04</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 04 · Interactive</span>
+  <h1>Tokenization playground</h1>
+  <p class="lede">Models never see words — they see tokens, chunks of text mapped to numbers. Type below and watch a live (approximate) tokenizer split your text.</p>
+
+  <div class="card">
+    <textarea id="input" data-persist="lesson04-text" style="width:100%;min-height:90px;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:12px;font-size:1rem"
+      placeholder="Type a sentence, e.g. The M1 Air can't run GPT-4, but it can absolutely evaluate a 1.5B model.">The M1 Air can't run GPT-4, but it can absolutely evaluate a 1.5B model.</textarea>
+    <div style="margin-top:14px" id="tokenOutput"></div>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-bottom:0" id="tokenStats"></p>
+  </div>
+
+  <p style="font-size:0.85rem;color:var(--text-dim)">
+    ⚠️ This is a simplified, illustrative tokenizer (word/punctuation splitting with subword
+    chunking) — it's not byte-pair encoding, and it won't match the real tokenizer the model uses.
+    In Lesson 05 you'll see real token counts printed by the actual model.
+  </p>
+
+  <h2>Why token count matters on your hardware</h2>
+  <div class="grid">
+    <div class="card"><h3>💾 Memory</h3><p style="font-size:0.9rem;color:var(--text-dim)">Every token the model has "seen" occupies space in the KV cache — more tokens in your prompt means more RAM used, as you saw in Lesson 03.</p></div>
+    <div class="card"><h3>⏱ Speed</h3><p style="font-size:0.9rem;color:var(--text-dim)">Generation happens one token at a time. A 500-token answer means 500 forward passes through the model — token count is your literal latency budget.</p></div>
+    <div class="card"><h3>📏 Benchmarks</h3><p style="font-size:0.9rem;color:var(--text-dim)">Evaluation harnesses score based on token-level probabilities — the granularity you're seeing here is exactly what perplexity (Lesson 06) is computed over.</p></div>
+  </div>
+
+  <h2>A rule of thumb</h2>
+  <p>For English text, a useful mental model is <strong>~1 token ≈ 0.75 words</strong> (or equivalently, 100 tokens ≈ 75 words). Numbers, code, and non-English text often tokenize far less efficiently — try pasting a JSON blob or some Hindi/Telugu text above and watch the token count jump relative to word count.</p>
+
+  <footer class="nextprev">
+    <a href="03-quantization-memory-calculator.html"><span class="dir">← Previous</span>Quantization &amp; memory calculator</a>
+    <a href="05-running-mlx-model.html">Next: Running your first model →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+<script>
+  const COLORS = ["tok-a", "tok-b", "tok-c", "tok-d"];
+
+  // A rough, illustrative tokenizer: splits on whitespace/punctuation, then
+  // breaks long words into ~4-character "subword" chunks, mimicking (loosely)
+  // how BPE tends to fragment unfamiliar or long words.
+  function approxTokenize(text) {
+    const rough = text.match(/[A-Za-z]+|[0-9]+|[^\sA-Za-z0-9]/g) || [];
+    const tokens = [];
+    for (const piece of rough) {
+      if (/^[A-Za-z]+$/.test(piece) && piece.length > 6) {
+        for (let i = 0; i < piece.length; i += 4) {
+          tokens.push((i === 0 ? "" : "##") + piece.slice(i, i + 4));
+        }
+      } else {
+        tokens.push(piece);
+      }
+    }
+    return tokens;
+  }
+
+  function render() {
+    const text = document.getElementById("input").value;
+    const tokens = approxTokenize(text);
+    const out = document.getElementById("tokenOutput");
+    out.innerHTML = tokens
+      .map((t, i) => `<span class="token ${COLORS[i % COLORS.length]}">${t.replace(/</g, "&lt;")}</span>`)
+      .join("");
+    const words = (text.trim().match(/\S+/g) || []).length;
+    document.getElementById("tokenStats").textContent =
+      `${tokens.length} tokens (approx.) from ${words} words — ratio ${(words ? (tokens.length / words).toFixed(2) : "0")} tokens/word`;
+  }
+
+  document.getElementById("input").addEventListener("input", render);
+  render();
+</script>
+</body>
+</html>

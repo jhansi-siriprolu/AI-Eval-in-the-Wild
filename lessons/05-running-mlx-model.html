@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>05 · Running Your First Model — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 05</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 05 · Hands-on in Terminal</span>
+  <h1>Running your first model, for real</h1>
+  <p class="lede">This is the lesson where you leave the browser. Open <strong>Terminal.app</strong> on your Mac and run these commands from inside your <code>AI Evals</code> project folder.</p>
+
+  <div class="card" style="border-color:var(--accent-2)">
+    <h3>⚠️ Run this in Terminal, not here</h3>
+    <p style="font-size:0.9rem;margin-bottom:0">This page is static HTML — it can't execute anything on your machine. Copy each command (the "Copy" button on every code block helps) into Terminal yourself. That's the point: you're building real muscle memory with the actual tools.</p>
+  </div>
+
+  <h2>Step 1 — Set up an isolated Python environment</h2>
+  <pre><code>cd ~/Documents/"AI Evals"
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip</code></pre>
+  <p style="font-size:0.9rem;color:var(--text-dim)">Or just run <code>bash scripts/01_setup_env.sh</code> — it does exactly this plus the installs below.</p>
+
+  <h2>Step 2 — Install MLX and the model tooling</h2>
+  <pre><code>pip install mlx mlx-lm huggingface_hub</code></pre>
+  <table>
+    <tr><th>Package</th><th>What it does</th></tr>
+    <tr><td><code>mlx</code></td><td>Apple's array/ML framework — runs directly on the M1's GPU via Metal</td></tr>
+    <tr><td><code>mlx-lm</code></td><td>Language-model utilities on top of MLX: download, generate, chat, evaluate</td></tr>
+    <tr><td><code>huggingface_hub</code></td><td>Client library for downloading model repos from the Hub</td></tr>
+  </table>
+
+  <h2>Step 3 — Download &amp; smoke-test the model</h2>
+  <pre><code>python -m mlx_lm.generate \
+  --model mlx-community/Qwen2.5-1.5B-Instruct-4bit \
+  --prompt "In one sentence, explain why quantization helps run AI models on laptops." \
+  --max-tokens 120</code></pre>
+  <p style="font-size:0.9rem">
+    The first run downloads the model (~1GB) into <code>~/.cache/huggingface</code> and caches it —
+    every run after that starts instantly. Watch the printed <strong>tokens-per-second</strong> figure
+    at the end; on an M1 Air you should see roughly 15–30 tok/s for a model this size.
+  </p>
+
+  <h2>Step 4 — Chat with it interactively</h2>
+  <pre><code>python scripts/03_chat_demo.py</code></pre>
+  <p style="font-size:0.9rem">A minimal REPL loop (in <code>scripts/03_chat_demo.py</code>) that keeps the model loaded between turns so you can have a real back-and-forth without reloading weights each time.</p>
+
+  <h2>What "good" output looks like</h2>
+  <pre><code>==========
+Prompt: In one sentence, explain why quantization helps run AI models on laptops.
+--------
+Quantization reduces the numerical precision used to store a model's weights,
+shrinking its memory footprint and speeding up computation so it can run on
+hardware with limited RAM, like a laptop, without needing a data-center GPU.
+==========
+Prompt: 14 tokens, Generation: 42 tokens
+Prompt tok/s: 148.220, Generation tok/s: 23.541
+Peak memory: 1.089 GB</code></pre>
+  <p style="font-size:0.85rem;color:var(--text-dim)">Sample output shown for illustration — yours will differ slightly. Paste your <em>actual</em> output into the lab notebook below once you run it.</p>
+
+  <div class="lab">
+    <h3>📝 Lab notebook — paste your real output here</h3>
+    <p style="font-size:0.88rem;margin-top:0">Run Step 3 above, then paste the full terminal output below. This becomes your baseline for comparing other models/quantizations later.</p>
+    <textarea data-persist="lesson05-output" placeholder="Paste your terminal output here..."></textarea>
+    <div class="save-hint">Saved automatically in this browser as you type.</div>
+  </div>
+
+  <h2>Troubleshooting</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely fix</th></tr>
+    <tr><td><code>zsh: command not found: python</code></td><td>Use <code>python3</code>, or make sure your venv is activated (prompt shows <code>(.venv)</code>)</td></tr>
+    <tr><td>Download seems stuck</td><td>Large first download — check Activity Monitor's Network tab; safe to let it run</td></tr>
+    <tr><td>"Killed: 9" / process dies</td><td>Close other memory-heavy apps (Chrome with many tabs is the usual culprit on 8GB); re-check Lesson 03's calculator</td></tr>
+    <tr><td><code>ModuleNotFoundError: mlx</code></td><td>MLX requires Apple Silicon + macOS 13.5+; confirm with <code>python -c "import platform;print(platform.machine())"</code> → should print <code>arm64</code></td></tr>
+  </table>
+
+  <footer class="nextprev">
+    <a href="04-tokenization-playground.html"><span class="dir">← Previous</span>Tokenization playground</a>
+    <a href="06-perplexity-explained.html">Next: Perplexity, hands-on →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+</body>
+</html>
