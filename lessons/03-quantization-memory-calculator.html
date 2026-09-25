@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>03 · Quantization &amp; Memory Calculator — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 03</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 03 · Interactive</span>
+  <h1>Will it fit in 8GB? Find out live.</h1>
+  <p class="lede">Every parameter in a model is a number that has to sit in memory. Quantization shrinks how many bits each number uses. Drag the sliders below and watch the math.</p>
+
+  <div class="card">
+    <div class="slider-row">
+      <label for="params">Model size</label>
+      <input type="range" id="params" min="0.5" max="14" step="0.1" value="1.5">
+      <div class="slider-val" id="paramsVal">1.5B</div>
+    </div>
+    <div class="slider-row">
+      <label for="bits">Quantization</label>
+      <input type="range" id="bits" min="0" max="3" step="1" value="0">
+      <div class="slider-val" id="bitsVal">4-bit</div>
+    </div>
+    <div class="slider-row">
+      <label for="ctx">Context window in use</label>
+      <input type="range" id="ctx" min="512" max="32768" step="512" value="4096">
+      <div class="slider-val" id="ctxVal">4096 tok</div>
+    </div>
+
+    <div id="resultBox" class="result-box fit">
+      <span id="resultTotal">1.2 GB</span>
+      <small id="resultDetail">weights + KV cache + runtime overhead, on an 8 GB machine</small>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-dim);margin-top:-6px" id="breakdown"></p>
+  </div>
+
+  <h2>The formula</h2>
+  <pre><code>weight_bytes  = params × (bits / 8)
+kv_cache_bytes ≈ 2 × layers × ctx_tokens × hidden_dim × (bits_kv / 8)   (grows with context length)
+runtime_overhead ≈ macOS + Python + MLX graph buffers, roughly 600 MB–1 GB fixed
+
+total ≈ weight_bytes + kv_cache_bytes + runtime_overhead</code></pre>
+  <p style="font-size:0.9rem;color:var(--text-dim)">This calculator uses simplified, representative constants (not a specific model's exact architecture) so you can build intuition. Real numbers vary ±20% by model architecture.</p>
+
+  <h2>Why 4-bit is the sweet spot on 8GB</h2>
+  <table>
+    <tr><th>Precision</th><th>Bytes / param</th><th>7B model size</th><th>Fits 8GB laptop?</th></tr>
+    <tr><td>fp32</td><td>4</td><td>28 GB</td><td><span class="badge bad">No</span></td></tr>
+    <tr><td>fp16 / bf16</td><td>2</td><td>14 GB</td><td><span class="badge bad">No</span></td></tr>
+    <tr><td>int8</td><td>1</td><td>7 GB</td><td><span class="badge warn">Barely, no room to run</span></td></tr>
+    <tr><td>int4</td><td>0.5</td><td>3.5 GB</td><td><span class="badge good">Yes, comfortably</span></td></tr>
+  </table>
+  <p>This is exactly why the course model is <code>Qwen2.5-1.5B-Instruct-4bit</code> — at 4-bit, a 1.5B model needs well under 1GB of weights, leaving the rest of your 8GB for macOS, your browser, and the KV cache.</p>
+
+  <div class="card">
+    <h3>The trade-off you're accepting</h3>
+    <p style="font-size:0.92rem">Lower bit-width means each weight is a coarser approximation of the original trained value. In practice, 4-bit quantization of modern models costs roughly 1–3% accuracy on benchmarks like MMLU compared to fp16 — a small, well-studied cost for a 4x memory saving. You'll measure this gap yourself once you run real evals in Lesson 08.</p>
+  </div>
+
+  <footer class="nextprev">
+    <a href="02-hugging-face-ecosystem.html"><span class="dir">← Previous</span>The Hugging Face ecosystem</a>
+    <a href="04-tokenization-playground.html">Next: Tokenization playground →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+<script>
+  const BIT_OPTIONS = [4, 8, 16, 32];
+  const BIT_LABELS = ["4-bit", "8-bit", "16-bit (fp16)", "32-bit (fp32)"];
+  const paramsEl = document.getElementById("params");
+  const bitsEl = document.getElementById("bits");
+  const ctxEl = document.getElementById("ctx");
+
+  function fmtGB(bytes) {
+    return (bytes / 1e9).toFixed(2) + " GB";
+  }
+
+  function recalc() {
+    const paramsB = parseFloat(paramsEl.value);
+    const bitsIdx = parseInt(bitsEl.value, 10);
+    const bits = BIT_OPTIONS[bitsIdx];
+    const ctx = parseInt(ctxEl.value, 10);
+
+    document.getElementById("paramsVal").textContent = paramsB.toFixed(1) + "B";
+    document.getElementById("bitsVal").textContent = BIT_LABELS[bitsIdx];
+    document.getElementById("ctxVal").textContent = ctx + " tok";
+
+    const params = paramsB * 1e9;
+    const weightBytes = params * (bits / 8);
+
+    // Rough architecture assumptions scaled from param count (illustrative, not exact).
+    const hiddenDim = Math.round(64 * Math.sqrt(paramsB * 1000)); // toy heuristic
+    const layers = Math.max(12, Math.round(6 * Math.pow(paramsB, 0.4) * 6));
+    const kvBytes = 2 * layers * ctx * hiddenDim * (16 / 8); // KV cache usually kept at fp16
+
+    const overhead = 0.8e9; // macOS + Python + MLX runtime, approx
+    const total = weightBytes + kvBytes + overhead;
+    const availableRAM = 8e9;
+    const usableRAM = availableRAM * 0.75; // leave headroom for the OS & apps
+
+    document.getElementById("resultTotal").textContent = fmtGB(total);
+    document.getElementById("breakdown").textContent =
+      `weights ${fmtGB(weightBytes)}  +  KV cache ${fmtGB(kvBytes)}  +  overhead ${fmtGB(overhead)}`;
+
+    const box = document.getElementById("resultBox");
+    const detail = document.getElementById("resultDetail");
+    box.classList.remove("fit", "tight", "no-fit");
+    if (total < usableRAM * 0.6) {
+      box.classList.add("fit");
+      detail.textContent = "comfortably fits — plenty of headroom on your 8GB Air";
+    } else if (total < usableRAM) {
+      box.classList.add("tight");
+      detail.textContent = "fits, but tight — close other heavy apps before running";
+    } else {
+      box.classList.add("no-fit");
+      detail.textContent = "will likely swap or crash on an 8GB machine — pick a smaller model, lower bit-width, or shorter context";
+    }
+  }
+
+  [paramsEl, bitsEl, ctxEl].forEach((el) => el.addEventListener("input", recalc));
+  recalc();
+</script>
+</body>
+</html>

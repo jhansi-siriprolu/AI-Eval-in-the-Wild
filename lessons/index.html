@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Evals — Evaluating Language Models on a MacBook Air M1 (8GB)</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar">
+  <a class="brand" href="index.html">🧪 AI Evals</a>
+  <span class="crumbs">Home</span>
+</div>
+<div class="wrap">
+  <span class="kicker">Interactive course · runs entirely on your Mac</span>
+  <h1>Evaluating AI Models on an 8GB M1 Air</h1>
+  <p class="lede">
+    A hands-on project to learn how model evaluation actually works — by running a real,
+    small open-weight model from Hugging Face on your own MacBook Air, and scoring it with
+    the same benchmarks used on public leaderboards. No cloud GPU, no API keys required.
+  </p>
+
+  <div class="hw-strip">
+    <div class="stat"><div class="n">8 GB</div><div class="l">Unified memory</div></div>
+    <div class="stat"><div class="n">256 GB</div><div class="l">SSD</div></div>
+    <div class="stat"><div class="n">M1</div><div class="l">Apple Silicon (Metal)</div></div>
+    <div class="stat"><div class="n">MLX</div><div class="l">Apple's ML framework</div></div>
+  </div>
+
+  <div class="card">
+    <h3>Why this hardware is actually fine</h3>
+    <p>
+      An 8GB M1 Air can comfortably run and evaluate <strong>1–3 billion parameter</strong>
+      models in 4-bit quantization — the same class of model many production chat features use
+      for low-latency tasks. This course picks one to start:
+    </p>
+    <p>
+      <span class="badge">Model</span> <code>mlx-community/Qwen2.5-1.5B-Instruct-4bit</code>
+      <span class="badge good">~1.0 GB on disk</span>
+      <span class="badge good">Fits with headroom</span>
+    </p>
+    <p>You'll see exactly why this model was chosen in Lesson 3's memory calculator.</p>
+  </div>
+
+  <h2>The roadmap</h2>
+  <div class="grid">
+    <a class="card" style="text-decoration:none;color:inherit" href="01-intro-model-evaluation.html">
+      <div class="badge">01</div>
+      <h3>What "evaluating a model" means</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Benchmarks, leaderboards, and the vocabulary you need before touching any code.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="02-hugging-face-ecosystem.html">
+      <div class="badge">02</div>
+      <h3>The Hugging Face ecosystem</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Hub, model cards, quantized variants, and how to read a repo before downloading it.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="03-quantization-memory-calculator.html">
+      <div class="badge">03</div>
+      <h3>Quantization &amp; memory calculator</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Interactive tool: drag sliders and see live whether a model fits in your 8GB.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="04-tokenization-playground.html">
+      <div class="badge">04</div>
+      <h3>Tokenization playground</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Type any sentence and watch it get chopped into tokens, live in your browser.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="05-running-mlx-model.html">
+      <div class="badge">05</div>
+      <h3>Running your first model</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Real terminal commands to install MLX, download the model, and chat with it.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="06-perplexity-explained.html">
+      <div class="badge">06</div>
+      <h3>Perplexity, hands-on</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Move sliders on token probabilities and watch the perplexity score react instantly.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="07-benchmarks-quiz.html">
+      <div class="badge">07</div>
+      <h3>Take the benchmarks yourself</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Answer real MMLU/ARC-style questions before you ever ask the model to.</p>
+    </a>
+    <a class="card" style="text-decoration:none;color:inherit" href="08-results-dashboard.html">
+      <div class="badge">08</div>
+      <h3>Your results dashboard</h3>
+      <p style="color:var(--text-dim);font-size:0.9rem">Plug in the JSON your evaluation run produces and see it charted.</p>
+    </a>
+  </div>
+
+  <div class="card" style="border-color:var(--accent)">
+    <h3>Project folder layout</h3>
+    <pre><code>AI Evals/
+├── README.md              overview + quick start
+├── SETUP.md                step-by-step environment setup
+├── requirements.txt
+├── scripts/                 real Python/shell you'll run in Terminal
+│   ├── 01_setup_env.sh
+│   ├── 02_download_and_test.py
+│   ├── 03_chat_demo.py
+│   ├── 04_run_eval_harness.sh
+│   └── 05_export_results.py
+├── lessons/                ← you are here (open index.html in a browser)
+└── results/                 your real eval output lands here as results.json</code></pre>
+  </div>
+
+  <p style="color:var(--text-dim);font-size:0.9rem">
+    Start with Lesson 01, or jump straight to Lesson 05 if you just want to run the model.
+  </p>
+  <a class="btn" href="01-intro-model-evaluation.html">Start Lesson 01 →</a>
+</div>
+<script src="js/common.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+{
+  "model": "mlx-community/Qwen2.5-1.5B-Instruct-4bit (SAMPLE — replace by running scripts/04 and scripts/05)",
+  "date": "sample",
+  "tasks": {
+    "mmlu": { "acc": 0.47, "baseline_random": 0.25 },
+    "hellaswag": { "acc": 0.55, "baseline_random": 0.25 },
+    "arc_easy": { "acc": 0.68, "baseline_random": 0.25 }
+  }
+}

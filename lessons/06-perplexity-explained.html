@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>06 · Perplexity, Hands-On — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 06</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 06 · Interactive</span>
+  <h1>Perplexity, hands-on</h1>
+  <p class="lede">Perplexity measures how "surprised" a model is by real text. Move the sliders below — each one is the model's predicted probability for the token that actually came next — and watch the score respond live.</p>
+
+  <div class="card">
+    <p style="margin-top:0;font-size:0.92rem">Sentence: <em>"The capital of France is <strong>___</strong>."</em> — five candidate next-token probabilities a model might assign:</p>
+    <div id="sliders"></div>
+    <div id="ppl" class="result-box fit"><span id="pplVal">—</span><small>perplexity over these 5 tokens</small></div>
+  </div>
+
+  <h2>The formula</h2>
+  <pre><code>PPL = exp( -(1/N) × Σ log P(token_i) )</code></pre>
+  <p style="font-size:0.9rem">In words: take the model's predicted probability for each actual next token, average their logs, negate, and exponentiate. A model that's <em>certain</em> and <em>correct</em> about every token scores close to <strong>1</strong>. A model guessing uniformly among <em>V</em> possible tokens scores close to <strong>V</strong>.</p>
+
+  <div class="grid">
+    <div class="card"><h3>PPL ≈ 1–5</h3><p style="font-size:0.88rem;color:var(--text-dim)">Model is confidently, correctly predicting the text — typical for a well-trained model on text similar to its training data.</p></div>
+    <div class="card"><h3>PPL ≈ 20–50</h3><p style="font-size:0.88rem;color:var(--text-dim)">Model is meaningfully uncertain — common on out-of-domain or unusual text (e.g. code for a model trained mostly on prose).</p></div>
+    <div class="card"><h3>PPL &gt; 100</h3><p style="font-size:0.88rem;color:var(--text-dim)">Model is close to guessing randomly for this text — a red flag for a domain mismatch or broken tokenization.</p></div>
+  </div>
+
+  <h2>Try the extremes yourself</h2>
+  <p style="font-size:0.92rem">Drag every slider to <strong>100%</strong> — perplexity should drop to almost exactly <strong>1.0</strong> (a perfectly confident, correct model). Then drag every slider down to <strong>20%</strong> (uniform guessing among 5 options) — perplexity should land near <strong>5.0</strong>, exactly the number of options. This is the calculation lm-evaluation-harness runs internally, just applied to one word choice instead of a whole benchmark.</p>
+
+  <footer class="nextprev">
+    <a href="05-running-mlx-model.html"><span class="dir">← Previous</span>Running your first model</a>
+    <a href="07-benchmarks-quiz.html">Next: Take the benchmarks yourself →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+<script>
+  const TOKENS = ["Paris", "London", "Berlin", "the", "Rome"];
+  const DEFAULTS = [82, 4, 3, 8, 3];
+  const container = document.getElementById("sliders");
+
+  TOKENS.forEach((tok, i) => {
+    const row = document.createElement("div");
+    row.className = "slider-row";
+    row.innerHTML = `
+      <label>P("${tok}") is next</label>
+      <input type="range" min="1" max="100" value="${DEFAULTS[i]}" id="pslider${i}">
+      <div class="slider-val" id="pval${i}">${DEFAULTS[i]}%</div>`;
+    container.appendChild(row);
+  });
+
+  function recalc() {
+    let sumLog = 0;
+    TOKENS.forEach((_, i) => {
+      const v = parseInt(document.getElementById(`pslider${i}`).value, 10);
+      document.getElementById(`pval${i}`).textContent = v + "%";
+      sumLog += Math.log(v / 100);
+    });
+    const ppl = Math.exp(-sumLog / TOKENS.length);
+    document.getElementById("pplVal").textContent = ppl.toFixed(2);
+
+    const box = document.getElementById("ppl");
+    box.classList.remove("fit", "tight", "no-fit");
+    if (ppl < 5) box.classList.add("fit");
+    else if (ppl < 20) box.classList.add("tight");
+    else box.classList.add("no-fit");
+  }
+
+  TOKENS.forEach((_, i) =>
+    document.getElementById(`pslider${i}`).addEventListener("input", recalc)
+  );
+  recalc();
+</script>
+</body>
+</html>

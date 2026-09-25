@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>01 · What "Evaluating a Model" Means — AI Evals</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="topbar"><a class="brand" href="index.html">🧪 AI Evals</a><span class="crumbs">Lesson 01</span></div>
+<div class="wrap">
+  <div class="lesson-nav">
+    <a href="index.html">Home</a>
+    <a href="01-intro-model-evaluation.html">01 Intro</a>
+    <a href="02-hugging-face-ecosystem.html">02 Hugging Face</a>
+    <a href="03-quantization-memory-calculator.html">03 Memory</a>
+    <a href="04-tokenization-playground.html">04 Tokens</a>
+    <a href="05-running-mlx-model.html">05 Run Model</a>
+    <a href="06-perplexity-explained.html">06 Perplexity</a>
+    <a href="07-benchmarks-quiz.html">07 Benchmarks</a>
+    <a href="08-results-dashboard.html">08 Dashboard</a>
+  </div>
+
+  <span class="kicker">Lesson 01</span>
+  <h1>What "evaluating a model" actually means</h1>
+  <p class="lede">Before you download anything, get the vocabulary straight — it's what every model card, leaderboard, and research paper assumes you already know.</p>
+
+  <h2>Three different questions people call "evaluation"</h2>
+  <div class="grid">
+    <div class="card">
+      <div class="badge">Capability</div>
+      <h3>Can it get the right answer?</h3>
+      <p style="font-size:0.92rem;color:var(--text-dim)">Multiple-choice knowledge tests, math word problems, code that must pass unit tests. Scored as <strong>accuracy</strong> — a plain percentage.</p>
+    </div>
+    <div class="card">
+      <div class="badge">Fluency</div>
+      <h3>Is the text itself plausible?</h3>
+      <p style="font-size:0.92rem;color:var(--text-dim)">How surprised is the model by real text? Measured as <strong>perplexity</strong> — lower means the model predicted the actual next words more confidently.</p>
+    </div>
+    <div class="card">
+      <div class="badge">Alignment</div>
+      <h3>Does it behave the way you want?</h3>
+      <p style="font-size:0.92rem;color:var(--text-dim)">Helpfulness, refusals, safety, following instructions. Usually scored by another model or a human — no clean formula.</p>
+    </div>
+  </div>
+  <p>This course focuses on the first two, because they're objective, reproducible on your own machine, and directly comparable to public leaderboards.</p>
+
+  <h2>The benchmarks you'll actually run</h2>
+  <table>
+    <tr><th>Benchmark</th><th>Tests</th><th>Format</th></tr>
+    <tr><td><strong>MMLU</strong></td><td>Broad academic knowledge, 57 subjects</td><td>4-way multiple choice</td></tr>
+    <tr><td><strong>HellaSwag</strong></td><td>Commonsense "what happens next"</td><td>4-way multiple choice</td></tr>
+    <tr><td><strong>ARC</strong></td><td>Grade-school science reasoning</td><td>Multiple choice</td></tr>
+    <tr><td><strong>GSM8K</strong></td><td>Grade-school math word problems</td><td>Free-form, exact-match answer</td></tr>
+  </table>
+  <p>You'll meet real sample questions from these in <a href="07-benchmarks-quiz.html">Lesson 07</a> — and answer a few yourself before the model does.</p>
+
+  <div class="card">
+    <h3>Why bother running this locally at all?</h3>
+    <p style="font-size:0.93rem">
+      Public leaderboards (Hugging Face's Open LLM Leaderboard, lmarena.ai, etc.) already publish these
+      numbers for thousands of models. Running your own evaluation matters when you need to know how a model
+      performs on <em>your</em> data, in <em>your</em> quantization, on <em>your</em> hardware — numbers that
+      no leaderboard can give you, because a 4-bit MLX build on an 8GB Air behaves differently from the
+      full-precision model on a data-center GPU that produced the published score.
+    </p>
+  </div>
+
+  <h2>How scoring actually works under the hood</h2>
+  <p>For multiple-choice benchmarks, the model is <em>not</em> asked to type "A", "B", "C", or "D". Instead, the
+  evaluation harness computes the model's own probability of generating the full text of each answer option, and
+  picks whichever option the model assigned the highest likelihood to. This is why it's called a
+  <strong>log-likelihood</strong> evaluation — it reuses the same next-token-probability machinery you'll explore
+  hands-on in <a href="06-perplexity-explained.html">Lesson 06</a>.</p>
+
+  <footer class="nextprev">
+    <span></span>
+    <a href="02-hugging-face-ecosystem.html">Next: The Hugging Face ecosystem →<span class="dir"></span></a>
+  </footer>
+</div>
+<script src="js/common.js"></script>
+</body>
+</html>
