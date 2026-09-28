@@ -49,7 +49,18 @@ AI Evals/
 │   ├── 05-running-mlx-model.html
 │   ├── 06-perplexity-explained.html
 │   ├── 07-benchmarks-quiz.html
-│   └── 08-results-dashboard.html
+│   ├── 08-results-dashboard.html
+│   └── local-model-lessons/     deep-dive lessons, split into "Days"
+│       ├── README.md
+│       ├── Day1-loglikelihood-intro/
+│       │   ├── README.md
+│       │   └── lesson.html          interactive: loglikelihood vs generate_until
+│       └── Day2-loglikelihood-code/
+│           ├── README.md
+│           ├── toy_lm.py                the real scoring code, runs on numpy alone
+│           └── loglikelihood_vs_generate.ipynb
+├── blog/                    Medium-friendly write-ups for the 30-day series
+│   └── day2-loglikelihood-vs-generate.md
 └── results/                  your real evaluation output lands here
     └── results.sample.json     example of the expected shape
 ```
