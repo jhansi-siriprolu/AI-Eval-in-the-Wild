@@ -1,0 +1,643 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Log-likelihood scoring vs. generate_until</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --border:#2a3040;
+    --text:#e6edf3; --muted:#9aa7b8; --accent:#5aa0ff; --accent2:#ffb454;
+    --good:#4fd18b; --bad:#ff6b6b; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f7f8fa; --panel:#ffffff; --panel2:#f0f2f6; --border:#dfe3ea;
+      --text:#1b2330; --muted:#5b6577; --accent:#2563eb; --accent2:#c2740a;
+      --good:#1a9c5f; --bad:#d1394a; }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:80px;
+  }
+  header{
+    padding:36px 24px 20px; max-width:920px; margin:0 auto;
+  }
+  header h1{ font-size:1.7rem; margin:0 0 8px; }
+  header p.sub{ color:var(--muted); margin:0; font-size:1.02rem; }
+  nav.toc{
+    max-width:920px; margin:18px auto 0; padding:14px 18px; background:var(--panel);
+    border:1px solid var(--border); border-radius:10px; display:flex; flex-wrap:wrap; gap:8px 18px;
+  }
+  nav.toc a{ color:var(--accent); text-decoration:none; font-size:.92rem; }
+  nav.toc a:hover{ text-decoration:underline; }
+  main{ max-width:920px; margin:0 auto; padding:0 24px; }
+  section{ margin-top:48px; }
+  section h2{
+    font-size:1.3rem; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px;
+    display:flex; align-items:center; gap:10px;
+  }
+  section h2 .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:50%; background:var(--accent); color:#fff;
+    font-size:.85rem; font-weight:700; flex:none;
+  }
+  p{ margin:0 0 14px; }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin:16px 0;
+  }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
+  code, .mono{ font-family:var(--mono); font-size:.92em; }
+  pre{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; overflow-x:auto; font-family:var(--mono); font-size:.86rem; line-height:1.5;
+  }
+  .formula{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:16px 18px; text-align:center; font-family:var(--mono); font-size:1.05rem;
+    margin:16px 0; color:var(--accent);
+  }
+  table{ width:100%; border-collapse:collapse; margin:12px 0; font-size:.92rem; }
+  th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  th{ color:var(--muted); font-weight:600; }
+  .pill{
+    display:inline-block; padding:2px 9px; border-radius:999px; font-size:.75rem;
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+  }
+  .choice-row{
+    display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px;
+    background:var(--panel2); margin:8px 0; border:1px solid var(--border);
+  }
+  .choice-row.winner{ border-color:var(--good); box-shadow:0 0 0 1px var(--good) inset; }
+  .choice-label{ width:22px; font-weight:700; color:var(--muted); flex:none; }
+  .choice-word{ width:90px; font-family:var(--mono); flex:none; }
+  .bar-track{ flex:1; height:10px; background:var(--border); border-radius:6px; overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--accent); transition:width .25s ease; }
+  .winner .bar-fill{ background:var(--good); }
+  .choice-score{ width:150px; text-align:right; font-family:var(--mono); font-size:.85rem; color:var(--muted); flex:none; }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  .slider-row{ display:flex; align-items:center; gap:12px; margin:10px 0; }
+  .slider-row label{ width:190px; flex:none; font-size:.88rem; color:var(--muted); }
+  .slider-row .val{ width:56px; text-align:right; font-family:var(--mono); flex:none; }
+  button{
+    background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px;
+    font-size:.9rem; font-weight:600; cursor:pointer;
+  }
+  button.secondary{ background:var(--panel2); color:var(--text); border:1px solid var(--border); }
+  button:hover{ filter:brightness(1.08); }
+  .trace-line{ font-family:var(--mono); font-size:.85rem; padding:3px 0; }
+  .trace-line .lp{ color:var(--accent2); }
+  .warn{
+    border-left:3px solid var(--bad); background:rgba(255,107,107,.08); padding:10px 14px; border-radius:0 8px 8px 0;
+    font-size:.9rem; margin:12px 0;
+  }
+  .ok{
+    border-left:3px solid var(--good); background:rgba(79,209,139,.08); padding:10px 14px; border-radius:0 8px 8px 0;
+    font-size:.9rem; margin:12px 0;
+  }
+  .memory-bar-outer{ height:26px; background:var(--panel2); border:1px solid var(--border); border-radius:6px; overflow:hidden; position:relative; margin:6px 0; }
+  .memory-bar-inner{ height:100%; background:linear-gradient(90deg,var(--good),var(--accent2),var(--bad)); transition:width .2s; }
+  .memory-budget-line{ position:absolute; top:0; bottom:0; width:2px; background:var(--text); }
+  .memory-readout{ display:flex; justify-content:space-between; font-family:var(--mono); font-size:.85rem; margin-top:4px; color:var(--muted); }
+  .foot-nav{ display:flex; justify-content:space-between; margin-top:14px; }
+  .foot-nav a{ color:var(--muted); font-size:.85rem; text-decoration:none; }
+  .foot-nav a:hover{ color:var(--accent); }
+  details.hint{ margin:10px 0; }
+  details.hint summary{ cursor:pointer; color:var(--accent); font-size:.88rem; }
+  .kbd{ font-family:var(--mono); background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:.82em; }
+  footer{ max-width:920px; margin:60px auto 0; padding:20px 24px; color:var(--muted); font-size:.85rem; border-top:1px solid var(--border); }
+  .quiz-opt{
+    display:block; width:100%; text-align:left; background:var(--panel2); border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; border-radius:8px; margin:6px 0; cursor:pointer; font-size:.92rem;
+  }
+  .quiz-opt:hover{ border-color:var(--accent); }
+  .quiz-opt.correct{ border-color:var(--good); background:rgba(79,209,139,.12); }
+  .quiz-opt.incorrect{ border-color:var(--bad); background:rgba(255,107,107,.12); }
+  .quiz-feedback{ margin-top:8px; font-size:.88rem; }
+  .progress-track{ position:fixed; top:0; left:0; height:3px; background:var(--accent); z-index:50; transition:width .1s; }
+  abbr{ text-decoration:underline dotted var(--muted); cursor:help; }
+  .glossary{ display:grid; grid-template-columns:1fr; gap:10px; }
+  .glossary .term{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:start; }
+  @media (max-width:600px){ .glossary .term{ grid-template-columns:1fr; } }
+  .glossary .term .name{ font-family:var(--mono); font-weight:700; color:var(--accent2); }
+  .fixed-tag{ display:inline-block; padding:1px 7px; border-radius:5px; font-size:.72rem; background:var(--panel); border:1px solid var(--border); color:var(--muted); margin-left:6px; }
+  .drag-tag{ display:inline-block; padding:1px 7px; border-radius:5px; font-size:.72rem; background:rgba(90,160,255,.15); border:1px solid var(--accent); color:var(--accent); margin-left:6px; }
+</style>
+</head>
+<body>
+<div class="progress-track" id="progressTrack" style="width:0%"></div>
+
+<header>
+  <h1>Log-likelihood scoring vs. <code>generate_until</code></h1>
+  <p class="sub">How MMLU, HellaSwag &amp; ARC score answers without ever writing one — and why that's what lets them run on an 8GB laptop while GSM8K-style generation can eat all your RAM.</p>
+</header>
+
+<nav class="toc">
+  <a href="#sec1">1. The one function underneath everything</a>
+  <a href="#sec2">2. loglikelihood scoring</a>
+  <a href="#sec3">3. Play: score an MMLU question</a>
+  <a href="#sec4">4. generate_until</a>
+  <a href="#sec5">5. The KV cache & memory</a>
+  <a href="#sec6">6. Play: will it OOM?</a>
+  <a href="#sec7">7. Check yourself</a>
+  <a href="#glossary">Glossary of terms</a>
+</nav>
+
+<main>
+
+<section id="glossary">
+  <h2><span class="num">0</span>Glossary — the abbreviations you'll see everywhere</h2>
+  <p>Every term below also shows a tooltip if you hover over it later on this page (dotted underline). Skim this once before continuing — the rest of the lesson leans on all six.</p>
+  <div class="card glossary">
+    <div class="term"><span class="name">⟨bos⟩ / BOS</span><span><strong>B</strong>eginning <strong>o</strong>f <strong>s</strong>equence — a special token the tokenizer inserts before your actual text so the model has "something" to condition on for the very first real word. It isn't a word you typed; it's a fixed marker every prompt starts with, the same way a sentence starts with a capital letter. When you see <span class="mono">log P(answer | ⟨bos⟩)</span>, read it as "the probability of 'answer' being the very first word, right after this synthetic start marker."</span></div>
+    <div class="term"><span class="name">logit</span><span>The model's raw, unnormalized "score" for one candidate word — can be any real number (negative, zero, huge). On its own a logit isn't a probability; it only becomes one after <span class="mono">softmax</span> below. Bigger logit = model wants that word more, but "wants it more" only means something <em>relative to the other logits it's being compared against.</em></span></div>
+    <div class="term"><span class="name">softmax</span><span>The formula that turns a list of logits into real probabilities: exponentiate each one, then divide by the sum of all the exponentials. This is why softmax is a <em>competition</em>, not an independent measurement — raising one word's logit doesn't just help that word, it also divides the probability pie into different-sized slices for every other word, because they all have to add up to 1.</span></div>
+    <div class="term"><span class="name">log-likelihood</span><span>Instead of multiplying several probabilities together (each &lt;1, so the product keeps shrinking and can underflow to 0 on a computer), take the <span class="mono">log</span> of each probability first and <em>add</em> them. Same ranking, safer arithmetic. A log-probability is always ≤ 0 (0 = "certain", very negative = "very surprised").</span></div>
+    <div class="term"><span class="name">argmax</span><span>"Pick whichever option has the biggest value." <span class="mono">argmax</span> over logits, probabilities, or log-probabilities all give the <em>same winner</em> for a single token, because log and softmax are both order-preserving — they stretch or compress the gaps between numbers but never reorder them.</span></div>
+    <div class="term"><span class="name">KV cache</span><span><strong>K</strong>ey/<strong>V</strong>alue cache — every generated token, once produced, has its internal "Key" and "Value" attention vectors saved so the model doesn't have to recompute them when it looks back at that token later. It's the main thing eating your RAM during long generation (Section 5).</span></div>
+  </div>
+</section>
+
+<section id="sec1">
+  <h2><span class="num">1</span>The one function underneath everything</h2>
+  <p>A language model is, mechanically, a function you can call over and over:
+  feed it some tokens (the "context"), it hands back one score — a <em>logit</em> —
+  for every word in its vocabulary, saying how much it "wants" to produce that word next.</p>
+  <div class="formula">P(next = v | context) = softmax(logits)<sub>v</sub></div>
+  <p>Softmax just rescales the raw logits into numbers between 0 and 1 that add up to 1 — a genuine probability distribution.
+  <strong>Every benchmark below is just a different way of calling this same function, over and over, and doing different arithmetic with the results.</strong></p>
+
+  <div class="card">
+    <p style="margin-bottom:6px"><strong>Try it:</strong> a tiny hand-built model is asked what word comes next after
+    <span class="mono">"the capital of france is ___"</span>. It has already assigned a <abbr title="raw, unnormalized score">logit</abbr>
+    to every candidate word in its vocabulary — <em>you are not changing the sentence or the words themselves,
+    only one number: how strongly the model favors "paris".</em></p>
+    <p style="margin-bottom:10px; color:var(--muted); font-size:.88rem;">
+      Only <span class="mono">paris</span>'s logit moves (<span class="drag-tag">you drag this</span>).
+      <span class="mono">berlin</span>, <span class="mono">rome</span>, <span class="mono">madrid</span>, and <span class="mono">a</span>
+      keep the exact same logits the whole time (<span class="fixed-tag">fixed: 3.0 / 2.5 / 0.5 / 1.0</span>).
+      Watch their <em>bars</em> shrink or grow anyway — that's the point. <abbr title="Turns a list of logits into probabilities that sum to 1">Softmax</abbr>
+      forces every probability in the row to add up to 1, so the moment "paris" gets more confident, it isn't just gaining —
+      it's <em>taking</em> probability mass away from the other four, who had no say in it. Nothing is being reordered or jumbled;
+      one dial turns, and the shared 100% gets redivided.</p>
+    <div class="slider-row">
+      <label for="confSlider">"paris" logit (everything else stays fixed)</label>
+      <input type="range" id="confSlider" min="0" max="10" step="0.5" value="5">
+      <span class="val" id="confVal">5.0</span>
+    </div>
+    <div id="distBars"></div>
+    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Try dragging to <strong>0</strong>: "paris" now has the <em>lowest</em> logit of the five, so it loses the "winner" highlight to whichever fixed word has the next-highest logit — proof the other bars were never frozen, only their <em>logits</em> were.</p>
+  </div>
+</section>
+
+<section id="sec2">
+  <h2><span class="num">2</span><code>loglikelihood</code>: scoring a string you already have</h2>
+  <p>MMLU, HellaSwag, and ARC are all <strong>multiple choice</strong>. The harness never asks the model to write anything —
+  it already has the candidate answers as literal strings. So instead of generating, it asks a narrower question per choice:
+  <em>"if I forced you to say exactly this, how surprised would you be?"</em></p>
+
+  <div class="formula">score(c) = Σᵢ log P(cᵢ | context, c₁, ..., cᵢ₋₁)</div>
+
+  <p>Sum of log-probabilities across the tokens of the candidate continuation. Two reasons for logs, not raw probabilities:</p>
+  <ul>
+    <li><strong>Numerical stability</strong> — multiplying many numbers &lt; 1 underflows to 0 in floating point; adding their logs doesn't.</li>
+    <li><strong>Additive reasoning</strong> — each token's contribution is a separate, inspectable term, which is exactly what the trace below shows.</li>
+  </ul>
+
+  <div class="card">
+    <p style="margin-bottom:6px"><strong>Worked trace</strong> — scoring the continuation <span class="mono">"answer : 7"</span> token by token:</p>
+    <p style="margin-bottom:10px; color:var(--muted); font-size:.85rem;">Reading the notation: <span class="mono">log P(x | y)</span> means "the log-probability of token <span class="mono">x</span>, given that everything to the right of the <span class="mono">|</span> came before it." <abbr title="Beginning-of-sequence marker inserted by the tokenizer before your real text">⟨bos⟩</abbr> is not a real word — it's the fixed "start of input" marker every prompt begins with (see the <a href="#glossary">glossary</a>), so step 1 reads as "how likely is 'answer' to be the very first word, right after the sequence begins."</p>
+    <div class="trace-line">step 1 &nbsp;log P(<b>answer</b> | ⟨bos⟩) &nbsp;=&nbsp; <span class="lp">-5.144</span> &nbsp;(P = 0.006 — rare to start a sentence this way)</div>
+    <div class="trace-line">step 2 &nbsp;log P(<b>:</b> | ⟨bos⟩ answer) &nbsp;=&nbsp; <span class="lp">-0.021</span> &nbsp;(P = 0.980 — "answer" is almost always followed by ":")</div>
+    <div class="trace-line">step 3 &nbsp;log P(<b>7</b> | ⟨bos⟩ answer :) &nbsp;=&nbsp; <span class="lp">-0.840</span> &nbsp;(P = 0.432 — model's best guess for the number)</div>
+    <div class="trace-line" style="margin-top:8px; border-top:1px solid var(--border); padding-top:8px;">
+      <b>total log-likelihood = -5.144 + -0.021 + -0.840 = -6.005</b>
+    </div>
+    <p style="margin-top:10px; color:var(--muted); font-size:.88rem;">Compare against <span class="mono">"answer : 42"</span>: same first two steps (identical context up to there), but step 3 scores <span class="mono">-2.340</span> instead — so its total is <span class="mono">-7.505</span>, lower (worse). "7" wins.</p>
+  </div>
+
+  <div class="ok">Notice steps 1 and 2 are <em>identical</em> between the two candidates — the shared prefix only needs to be computed once. Real eval harnesses exploit exactly this to score many choices efficiently.</div>
+</section>
+
+<section id="sec3">
+  <h2><span class="num">3</span>Play: score your own MMLU-style question</h2>
+  <p>This is a live simulation of the same toy bigram model from the notebook. Pick a question, tune the model's confidence in each answer, and watch the log-likelihood scores — and the softmax bar chart — update instantly.</p>
+
+  <div class="card">
+    <div class="slider-row"><label>Question</label>
+      <select id="qSelect" style="flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:6px 10px;">
+        <option value="capital">"The capital of France is ___"</option>
+        <option value="math">"answer : ___" (what's 5 + 2?)</option>
+      </select>
+    </div>
+    <div id="choiceSliders"></div>
+    <div id="choiceResults" style="margin-top:14px;"></div>
+    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Each slider is the model's raw logit (pre-softmax "confidence score") for that word coming right after the context. The bars below show <span class="mono">softmax</span> probability; the score on the right is the log-likelihood actually used to rank the choices — note it can disagree with "which bar looks tallest" once a continuation has more than one token.</p>
+  </div>
+
+  <details class="hint">
+    <summary>Why does the model sometimes pick the answer with the lower bar?</summary>
+    <p>It never does for single-token answers — probability and log-probability rank identically since log is monotonic. But once continuations differ in <em>length</em> or in <em>multiple</em> tokens, you're comparing sums of several log-probs, and a short confident answer can beat a long, hesitant one even if a naive "look at the first token" comparison suggests otherwise. Try the math question above and lengthen one option conceptually by imagining a 2-token wrong answer like "twelve" (two tokens in a real tokenizer) against a 1-token right answer — the extra token is one more chance to lose probability mass.</p>
+  </details>
+</section>
+
+<section id="sec4">
+  <h2><span class="num">4</span><code>generate_until</code>: producing a string you don't have yet</h2>
+  <p>GSM8K wants free-form reasoning: <em>"Natalia sold clips to 48 friends in April, then half as many in May. How many total?"</em>
+  There's no fixed list of candidates to score. The model must <strong>generate</strong>, one token at a time:</p>
+
+  <pre>loop until stop_string appears in output, or max_tokens reached:
+    1. forward pass on (context + everything generated so far)
+    2. pick next token (<abbr title="pick whichever option has the highest score">argmax</abbr>, or sample from the distribution)
+    3. append it — now the context is one token longer
+    4. check: does the output so far contain a stop string?</pre>
+
+  <p>The key difference from Section 2: <strong>every loop iteration is a full forward pass</strong>, and each one depends on the output of the previous one — they cannot be parallelized. A 60-token chain-of-thought answer costs 60 sequential forward passes (with a KV cache reused across them — see next section) versus loglikelihood's fixed, known-length pass per candidate.</p>
+
+  <div class="card">
+    <p style="margin-bottom:10px;"><strong>Step through a toy generation:</strong></p>
+    <div style="display:flex; gap:10px; margin-bottom:10px;">
+      <button id="genStepBtn">▶ Step</button>
+      <button id="genResetBtn" class="secondary">↺ Reset</button>
+      <button id="genRunBtn" class="secondary">⏩ Run to stop</button>
+    </div>
+    <pre id="genOutput" style="min-height:90px;">context: "⟨bos⟩ the capital of germany is"
+(click Step to generate the next token)</pre>
+  </div>
+</section>
+
+<section id="sec5">
+  <h2><span class="num">5</span>The <abbr title="Key/Value cache — saved attention vectors for every token seen so far">KV cache</abbr>: where the memory actually goes</h2>
+  <p>Both scoring and generation are "just forward passes" — so why does one comfortably fit 8GB and the other can blow past it?
+  The answer is the <strong>KV cache</strong>. Every transformer layer's attention needs the Key and Value vectors of
+  <em>every token seen so far</em>. Recomputing those from scratch at each new generated token would be enormously wasteful,
+  so inference engines cache them — and that cache grows with sequence length.</p>
+
+  <div class="formula">KV cache bytes = 2 × layers × heads × head_dim × seq_len × batch × dtype_bytes</div>
+
+  <table>
+    <tr><th>Symbol</th><th>Meaning</th><th>Typical 7B-class value</th></tr>
+    <tr><td>layers (L)</td><td>transformer blocks stacked</td><td>32</td></tr>
+    <tr><td>heads (H)</td><td>attention heads per layer</td><td>32</td></tr>
+    <tr><td>head_dim</td><td>dimension per head</td><td>128</td></tr>
+    <tr><td>seq_len (S)</td><td>tokens processed <em>so far</em> — grows every generation step</td><td>varies!</td></tr>
+    <tr><td>batch (B)</td><td>examples scored/generated together</td><td>varies</td></tr>
+    <tr><td>dtype_bytes</td><td>2 for fp16/bf16</td><td>2</td></tr>
+  </table>
+
+  <div class="warn"><strong>The variable that changes everything: S.</strong> loglikelihood scoring has a short, <em>known-in-advance</em> S (question + one answer choice). Free-form generation has an <em>open-ended</em> S that you only discover by running — a model that rambles for 500 tokens before hitting its stop string pays for 500 tokens of KV cache, and if you're generating a whole batch at once, that cost multiplies by batch size too.</div>
+</section>
+
+<section id="sec6">
+  <h2><span class="num">6</span>Play: will it OOM?</h2>
+  <p>Drag the sliders to match your own hardware and workload, and watch whether the KV cache alone would blow your memory budget — separately from the model weights, which are a fixed cost either way.</p>
+
+  <div class="card">
+    <div class="grid2">
+      <div>
+        <div class="slider-row"><label for="memBudget">Memory budget (GB)</label><input type="range" id="memBudget" min="1" max="80" step="1" value="8"><span class="val" id="memBudgetVal">8</span></div>
+        <div class="slider-row"><label for="memLayers">Layers (L)</label><input type="range" id="memLayers" min="12" max="80" step="1" value="32"><span class="val" id="memLayersVal">32</span></div>
+        <div class="slider-row"><label for="memHeads">Heads (H)</label><input type="range" id="memHeads" min="8" max="64" step="1" value="32"><span class="val" id="memHeadsVal">32</span></div>
+        <div class="slider-row"><label for="memHeadDim">Head dim</label><input type="range" id="memHeadDim" min="32" max="256" step="8" value="128"><span class="val" id="memHeadDimVal">128</span></div>
+      </div>
+      <div>
+        <div class="slider-row"><label for="memSeq">Sequence length (S)</label><input type="range" id="memSeq" min="4" max="8192" step="4" value="128"><span class="val" id="memSeqVal">128</span></div>
+        <div class="slider-row"><label for="memBatch">Batch size (B)</label><input type="range" id="memBatch" min="1" max="64" step="1" value="1"><span class="val" id="memBatchVal">1</span></div>
+        <div class="slider-row"><label for="memWeightsGb">Model weights (GB, fixed cost)</label><input type="range" id="memWeightsGb" min="0" max="16" step="0.5" value="4"><span class="val" id="memWeightsGbVal">4.0</span></div>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <div class="memory-bar-outer"><div class="memory-bar-inner" id="memBarInner" style="width:0%"></div><div class="memory-bar-line" id="memBudgetLine"></div></div>
+      <div class="memory-readout">
+        <span id="memReadoutLeft">weights 4.00 GB + KV cache 0.00 GB = 4.00 GB total</span>
+        <span id="memReadoutRight">budget: 8 GB</span>
+      </div>
+    </div>
+    <div id="memVerdict" style="margin-top:10px;"></div>
+
+    <p style="margin-top:14px; color:var(--muted); font-size:.85rem;">Set <span class="mono">S</span> low and <span class="mono">B=1</span> to model a single MMLU question — it barely registers. Then push <span class="mono">S</span> toward 2000+ and <span class="mono">B</span> up to 8 or 16 to model batched GSM8K-style generation with long chain-of-thought — watch how fast the bar fills.</p>
+  </div>
+</section>
+
+<section id="sec7">
+  <h2><span class="num">7</span>Check yourself</h2>
+  <div class="card" id="quizCard"></div>
+</section>
+
+</main>
+
+<footer>
+  Companion files: <span class="mono">toy_lm.py</span> (the model + scoring code) and
+  <span class="mono">loglikelihood_vs_generate.ipynb</span> (the same walkthrough, runnable, with full traces).
+  This page's sliders reimplement the same bigram-softmax math in JavaScript so it's playable without a Python kernel.
+</footer>
+
+<script>
+// ---------------------------------------------------------------------
+// Shared math: softmax / log-softmax
+// ---------------------------------------------------------------------
+function softmax(arr){
+  const m = Math.max(...arr);
+  const exps = arr.map(x => Math.exp(x - m));
+  const sum = exps.reduce((a,b)=>a+b,0);
+  return exps.map(e => e/sum);
+}
+function logsoftmax(arr){
+  const m = Math.max(...arr);
+  const shifted = arr.map(x=>x-m);
+  const sum = shifted.reduce((a,s)=>a+Math.exp(s),0);
+  const logsum = Math.log(sum);
+  return shifted.map(s => s - logsum);
+}
+
+// ---------------------------------------------------------------------
+// Section 1: distribution bars driven by confidence slider
+// ---------------------------------------------------------------------
+const confSlider = document.getElementById('confSlider');
+const confVal = document.getElementById('confVal');
+const distBars = document.getElementById('distBars');
+
+function renderDist(){
+  const parisLogit = parseFloat(confSlider.value);
+  confVal.textContent = parisLogit.toFixed(1);
+  // background candidates with fixed logits, paris varies
+  const words = ['paris','berlin','rome','madrid','a'];
+  const logits = [parisLogit, 3.0, 2.5, 0.5, 1.0];
+  const probs = softmax(logits);
+  distBars.innerHTML = '';
+  words.forEach((w,i)=>{
+    const row = document.createElement('div');
+    row.className = 'choice-row' + (i===probs.indexOf(Math.max(...probs)) ? ' winner' : '');
+    row.innerHTML = `
+      <div class="choice-word">${w}</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(probs[i]*100).toFixed(1)}%"></div></div>
+      <div class="choice-score">P=${probs[i].toFixed(3)}  (logit ${logits[i].toFixed(1)})</div>
+    `;
+    distBars.appendChild(row);
+  });
+}
+confSlider.addEventListener('input', renderDist);
+renderDist();
+
+// ---------------------------------------------------------------------
+// Section 3: interactive MMLU-style scorer
+// ---------------------------------------------------------------------
+const questions = {
+  capital: {
+    context: '"the capital of france is ___"',
+    choices: [
+      {label:'A', text:'paris', tokens:['paris'], base:[5.0]},
+      {label:'B', text:'berlin', tokens:['berlin'], base:[3.0]},
+      {label:'C', text:'rome', tokens:['rome'], base:[2.5]},
+      {label:'D', text:'madrid', tokens:['madrid'], base:[0.5]},
+    ]
+  },
+  math: {
+    context: '"answer : ___" (5 + 2 = ?)',
+    choices: [
+      {label:'A', text:'7', tokens:['7'], base:[2.5]},
+      {label:'B', text:'42', tokens:['42'], base:[1.0]},
+      {label:'C', text:'5', tokens:['5'], base:[1.0]},
+      {label:'D', text:'12', tokens:['12'], base:[1.0]},
+    ]
+  }
+};
+
+const qSelect = document.getElementById('qSelect');
+const choiceSlidersEl = document.getElementById('choiceSliders');
+const choiceResultsEl = document.getElementById('choiceResults');
+let currentLogits = {};
+
+function buildSliders(){
+  const q = questions[qSelect.value];
+  choiceSlidersEl.innerHTML = '';
+  currentLogits = {};
+  q.choices.forEach((c, idx)=>{
+    currentLogits[c.label] = c.base[0];
+    const row = document.createElement('div');
+    row.className = 'slider-row';
+    row.innerHTML = `
+      <label>${c.label}) "${c.text}" logit</label>
+      <input type="range" min="-3" max="8" step="0.5" value="${c.base[0]}" data-label="${c.label}">
+      <span class="val" id="cs-val-${c.label}">${c.base[0].toFixed(1)}</span>
+    `;
+    choiceSlidersEl.appendChild(row);
+  });
+  choiceSlidersEl.querySelectorAll('input[type=range]').forEach(inp=>{
+    inp.addEventListener('input', (e)=>{
+      const lab = e.target.dataset.label;
+      currentLogits[lab] = parseFloat(e.target.value);
+      document.getElementById('cs-val-'+lab).textContent = currentLogits[lab].toFixed(1);
+      renderChoiceResults();
+    });
+  });
+  renderChoiceResults();
+}
+
+function renderChoiceResults(){
+  const q = questions[qSelect.value];
+  const labels = q.choices.map(c=>c.label);
+  const logits = labels.map(l=>currentLogits[l]);
+  const probs = softmax(logits);
+  const logps = logsoftmax(logits);
+  const maxIdx = logps.indexOf(Math.max(...logps));
+
+  choiceResultsEl.innerHTML = `<p style="color:var(--muted); font-size:.85rem; margin-bottom:8px;">Context: <span class="mono">${q.context}</span></p>`;
+  q.choices.forEach((c, i)=>{
+    const row = document.createElement('div');
+    row.className = 'choice-row' + (i===maxIdx ? ' winner' : '');
+    row.innerHTML = `
+      <div class="choice-label">${c.label}</div>
+      <div class="choice-word">"${c.text}"</div>
+      <div class="bar-track"><div class="bar-fill" style="width:${(probs[i]*100).toFixed(1)}%"></div></div>
+      <div class="choice-score">logP=${logps[i].toFixed(3)} (P=${probs[i].toFixed(3)})</div>
+    `;
+    choiceResultsEl.appendChild(row);
+  });
+  const winner = q.choices[maxIdx];
+  const note = document.createElement('p');
+  note.style.marginTop = '10px';
+  note.style.fontSize = '.88rem';
+  note.style.color = 'var(--good)';
+  note.textContent = `Model picks "${winner.text}" — highest log-likelihood.`;
+  choiceResultsEl.appendChild(note);
+}
+
+qSelect.addEventListener('change', buildSliders);
+buildSliders();
+
+// ---------------------------------------------------------------------
+// Section 4: step-through generation demo
+// ---------------------------------------------------------------------
+const genSteps = [
+  {tok:'berlin', logp:-0.087, note:'strong bigram match for "germany is"'},
+  {tok:'a', logp:-1.204, note:'model continues describing the city'},
+  {tok:'city', logp:-0.223, note:'"a" almost always precedes "city" here'},
+  {tok:'in', logp:-0.223, note:'"city" almost always precedes "in" here'},
+  {tok:'europe', logp:-0.223, note:'stop string "europe" reached — generation halts'},
+];
+let genIdx = 0;
+const genOutputEl = document.getElementById('genOutput');
+const genBaseText = 'context: "⟨bos⟩ the capital of germany is"';
+let genText = genBaseText;
+
+function renderGen(){
+  genOutputEl.textContent = genText;
+}
+document.getElementById('genStepBtn').addEventListener('click', ()=>{
+  if(genIdx >= genSteps.length){ return; }
+  const s = genSteps[genIdx];
+  genText += `\n\nstep ${genIdx+1}: forward pass -> argmax picks "${s.tok}"  (logP=${s.logp})\n  (${s.note})`;
+  genIdx++;
+  if(genIdx === genSteps.length){
+    genText += `\n\n✓ stop string found — final output:\n"the capital of germany is berlin a city in europe"`;
+  }
+  renderGen();
+});
+document.getElementById('genResetBtn').addEventListener('click', ()=>{
+  genIdx = 0;
+  genText = genBaseText + '\n(click Step to generate the next token)';
+  renderGen();
+});
+document.getElementById('genRunBtn').addEventListener('click', ()=>{
+  while(genIdx < genSteps.length){
+    document.getElementById('genStepBtn').click();
+  }
+});
+
+// ---------------------------------------------------------------------
+// Section 6: KV cache / OOM simulator
+// ---------------------------------------------------------------------
+const memIds = ['memBudget','memLayers','memHeads','memHeadDim','memSeq','memBatch','memWeightsGb'];
+memIds.forEach(id=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', renderMem);
+});
+
+function humanGB(n){ return n.toFixed(2) + ' GB'; }
+
+function renderMem(){
+  const budget = parseFloat(document.getElementById('memBudget').value);
+  const L = parseFloat(document.getElementById('memLayers').value);
+  const H = parseFloat(document.getElementById('memHeads').value);
+  const D = parseFloat(document.getElementById('memHeadDim').value);
+  const S = parseFloat(document.getElementById('memSeq').value);
+  const B = parseFloat(document.getElementById('memBatch').value);
+  const W = parseFloat(document.getElementById('memWeightsGb').value);
+
+  document.getElementById('memBudgetVal').textContent = budget;
+  document.getElementById('memLayersVal').textContent = L;
+  document.getElementById('memHeadsVal').textContent = H;
+  document.getElementById('memHeadDimVal').textContent = D;
+  document.getElementById('memSeqVal').textContent = S;
+  document.getElementById('memBatchVal').textContent = B;
+  document.getElementById('memWeightsGbVal').textContent = W.toFixed(1);
+
+  const dtypeBytes = 2;
+  const kvBytes = 2 * L * H * D * S * B * dtypeBytes;
+  const kvGB = kvBytes / (1024**3);
+  const totalGB = W + kvGB;
+
+  const pct = Math.min(100, (totalGB / budget) * 100);
+  const bar = document.getElementById('memBarInner');
+  bar.style.width = pct + '%';
+
+  document.getElementById('memReadoutLeft').textContent =
+    `weights ${humanGB(W)} + KV cache ${humanGB(kvGB)} = ${humanGB(totalGB)} total`;
+  document.getElementById('memReadoutRight').textContent = `budget: ${budget} GB`;
+
+  const verdict = document.getElementById('memVerdict');
+  if(totalGB > budget){
+    verdict.innerHTML = `<div class="warn"><strong>Over budget.</strong> KV cache + weights (${humanGB(totalGB)}) exceed your ${budget} GB budget — this is exactly the shape of a generation-time OOM. Lower S or B, or raise the budget, to see it recover.</div>`;
+  } else if (pct > 75) {
+    verdict.innerHTML = `<div class="warn" style="border-color:var(--accent2)"><strong>Cutting it close.</strong> ${pct.toFixed(0)}% of budget used — fine for one sequence, risky if anything else needs memory too.</div>`;
+  } else {
+    verdict.innerHTML = `<div class="ok"><strong>Comfortable.</strong> Only ${pct.toFixed(0)}% of budget used. This is the regime loglikelihood scoring lives in: short, known-length sequences.</div>`;
+  }
+}
+renderMem();
+
+// ---------------------------------------------------------------------
+// Section 7: quiz
+// ---------------------------------------------------------------------
+const quizQuestions = [
+  {
+    q: "For a 4-choice MMLU question, how many forward passes through the model does loglikelihood scoring need (ignoring prefix-sharing optimizations)?",
+    opts: ["1 total", "4 — one per choice", "As many as the longest answer has tokens, times 4", "It depends on how confident the model is"],
+    correct: 1,
+    explain: "One forward pass suffices per candidate answer (a single pass covers all tokens of that candidate, since the whole continuation is known in advance and processed together) — 4 choices, 4 passes."
+  },
+  {
+    q: "Why does generate_until need one forward pass per output token, while loglikelihood doesn't scale that way?",
+    opts: [
+      "Because generate_until uses a bigger vocabulary",
+      "Because each generated token must be fed back in before the next one can be produced — token t+1 depends on token t",
+      "Because loglikelihood doesn't use softmax",
+      "There's no real difference — both need the same number of passes"
+    ],
+    correct: 1,
+    explain: "Generation is inherently sequential: you don't know token t+1 until you've produced and appended token t. loglikelihood scoring already knows the whole continuation, so it isn't searching for anything."
+  },
+  {
+    q: "In the KV cache formula (bytes = 2·L·H·d·S·B·dtype_bytes), which variable is the main reason free-form generation can OOM when scoring multiple-choice can't?",
+    opts: ["L, the number of layers", "H, the number of attention heads", "S, the sequence length — open-ended for generation, short and known for scoring", "dtype_bytes"],
+    correct: 2,
+    explain: "L, H, d, and dtype_bytes are fixed by the model architecture. S (sequence length so far) is the variable that's small and bounded for scoring (question + one short answer) but can grow into the hundreds or thousands of tokens for open-ended generation — and it multiplies by batch size too."
+  },
+  {
+    q: "Two answer choices share the exact same question context. What does that let an efficient eval harness do?",
+    opts: [
+      "Skip scoring one of them entirely",
+      "Compute the shared prefix's forward pass once and reuse it for both choices",
+      "Assume both choices have equal probability",
+      "Nothing — they still must be scored completely independently"
+    ],
+    correct: 1,
+    explain: "Since log P(token | shared context) is identical for both choices up to where they diverge, that portion only needs to be computed once — a real optimization used by evaluation harnesses to speed up multi-choice scoring."
+  }
+];
+
+const quizCard = document.getElementById('quizCard');
+quizQuestions.forEach((qq, qi)=>{
+  const block = document.createElement('div');
+  block.style.marginBottom = '26px';
+  block.innerHTML = `<p><strong>${qi+1}. ${qq.q}</strong></p>`;
+  qq.opts.forEach((opt, oi)=>{
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = opt;
+    btn.addEventListener('click', ()=>{
+      const buttons = block.querySelectorAll('.quiz-opt');
+      buttons.forEach(b=>b.disabled = true);
+      if(oi === qq.correct){
+        btn.classList.add('correct');
+      } else {
+        btn.classList.add('incorrect');
+        buttons[qq.correct].classList.add('correct');
+      }
+      const fb = document.createElement('div');
+      fb.className = 'quiz-feedback';
+      fb.style.color = oi===qq.correct ? 'var(--good)' : 'var(--bad)';
+      fb.textContent = (oi===qq.correct ? '✓ Correct. ' : '✗ Not quite. ') + qq.explain;
+      block.appendChild(fb);
+    });
+    block.appendChild(btn);
+  });
+  quizCard.appendChild(block);
+});
+
+// ---------------------------------------------------------------------
+// Scroll progress bar
+// ---------------------------------------------------------------------
+window.addEventListener('scroll', ()=>{
+  const h = document.documentElement;
+  const pct = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  document.getElementById('progressTrack').style.width = pct + '%';
+});
+</script>
+</body>
+</html>
