@@ -1,0 +1,473 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>What Does 47% on MMLU Actually Mean?</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2230; --border:#2a3040;
+    --text:#e6edf3; --muted:#9aa7b8; --accent:#5aa0ff; --accent2:#ffb454;
+    --good:#4fd18b; --bad:#ff6b6b; --mono:'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace;
+  }
+  @media (prefers-color-scheme: light){
+    :root{ --bg:#f7f8fa; --panel:#ffffff; --panel2:#f0f2f6; --border:#dfe3ea;
+      --text:#1b2330; --muted:#5b6577; --accent:#2563eb; --accent2:#c2740a;
+      --good:#1a9c5f; --bad:#d1394a; }
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    padding-bottom:80px;
+  }
+  header{ padding:36px 24px 20px; max-width:920px; margin:0 auto; }
+  header h1{ font-size:1.7rem; margin:0 0 8px; }
+  header p.sub{ color:var(--muted); margin:0; font-size:1.02rem; }
+  nav.toc{
+    max-width:920px; margin:18px auto 0; padding:14px 18px; background:var(--panel);
+    border:1px solid var(--border); border-radius:10px; display:flex; flex-wrap:wrap; gap:8px 18px;
+  }
+  nav.toc a{ color:var(--accent); text-decoration:none; font-size:.92rem; }
+  nav.toc a:hover{ text-decoration:underline; }
+  main{ max-width:920px; margin:0 auto; padding:0 24px; }
+  section{ margin-top:48px; }
+  section h2{
+    font-size:1.3rem; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px;
+    display:flex; align-items:center; gap:10px;
+  }
+  section h2 .num{
+    display:inline-flex; align-items:center; justify-content:center;
+    width:28px; height:28px; border-radius:50%; background:var(--accent); color:#fff;
+    font-size:.85rem; font-weight:700; flex:none;
+  }
+  p{ margin:0 0 14px; }
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:18px 20px; margin:16px 0;
+  }
+  .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:720px){ .grid2{ grid-template-columns:1fr; } }
+  code, .mono{ font-family:var(--mono); font-size:.92em; }
+  pre{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:14px 16px; overflow-x:auto; font-family:var(--mono); font-size:.86rem; line-height:1.5;
+  }
+  .formula{
+    background:var(--panel2); border:1px solid var(--border); border-radius:8px;
+    padding:16px 18px; text-align:center; font-family:var(--mono); font-size:1.05rem;
+    margin:16px 0; color:var(--accent);
+  }
+  table{ width:100%; border-collapse:collapse; margin:12px 0; font-size:.92rem; }
+  th,td{ text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
+  th{ color:var(--muted); font-weight:600; }
+  .pill{
+    display:inline-block; padding:2px 9px; border-radius:999px; font-size:.75rem;
+    background:var(--panel2); border:1px solid var(--border); color:var(--muted);
+  }
+  .choice-row{
+    display:flex; align-items:center; gap:12px; padding:10px 12px; border-radius:8px;
+    background:var(--panel2); margin:8px 0; border:1px solid var(--border);
+  }
+  .choice-row.winner{ border-color:var(--good); box-shadow:0 0 0 1px var(--good) inset; }
+  .bar-track{ flex:1; height:10px; background:var(--border); border-radius:6px; overflow:hidden; }
+  .bar-fill{ height:100%; background:var(--accent); transition:width .25s ease; }
+  .winner .bar-fill{ background:var(--good); }
+  input[type=range]{ width:100%; accent-color:var(--accent); }
+  .slider-row{ display:flex; align-items:center; gap:12px; margin:10px 0; }
+  .slider-row label{ width:190px; flex:none; font-size:.88rem; color:var(--muted); }
+  .slider-row .val{ width:70px; text-align:right; font-family:var(--mono); flex:none; }
+  button{
+    background:var(--accent); color:#fff; border:none; border-radius:8px; padding:9px 16px;
+    font-size:.9rem; font-weight:600; cursor:pointer;
+  }
+  button.secondary{ background:var(--panel2); color:var(--text); border:1px solid var(--border); }
+  button:hover{ filter:brightness(1.08); }
+  .warn{
+    border-left:3px solid var(--bad); background:rgba(255,107,107,.08); padding:10px 14px; border-radius:0 8px 8px 0;
+    font-size:.9rem; margin:12px 0;
+  }
+  .ok{
+    border-left:3px solid var(--good); background:rgba(79,209,139,.08); padding:10px 14px; border-radius:0 8px 8px 0;
+    font-size:.9rem; margin:12px 0;
+  }
+  .foot-nav{ display:flex; justify-content:space-between; margin-top:14px; }
+  .foot-nav a{ color:var(--muted); font-size:.85rem; text-decoration:none; }
+  .foot-nav a:hover{ color:var(--accent); }
+  details.hint{ margin:10px 0; }
+  details.hint summary{ cursor:pointer; color:var(--accent); font-size:.88rem; }
+  .kbd{ font-family:var(--mono); background:var(--panel2); border:1px solid var(--border); border-radius:4px; padding:1px 6px; font-size:.82em; }
+  footer{ max-width:920px; margin:60px auto 0; padding:20px 24px; color:var(--muted); font-size:.85rem; border-top:1px solid var(--border); }
+  .quiz-opt{
+    display:block; width:100%; text-align:left; background:var(--panel2); border:1px solid var(--border);
+    color:var(--text); padding:10px 14px; border-radius:8px; margin:6px 0; cursor:pointer; font-size:.92rem;
+  }
+  .quiz-opt:hover{ border-color:var(--accent); }
+  .quiz-opt.correct{ border-color:var(--good); background:rgba(79,209,139,.12); }
+  .quiz-opt.incorrect{ border-color:var(--bad); background:rgba(255,107,107,.12); }
+  .quiz-feedback{ margin-top:8px; font-size:.88rem; }
+  .progress-track{ position:fixed; top:0; left:0; height:3px; background:var(--accent); z-index:50; transition:width .1s; }
+  abbr{ text-decoration:underline dotted var(--muted); cursor:help; }
+  .glossary{ display:grid; grid-template-columns:1fr; gap:10px; }
+  .glossary .term{ display:grid; grid-template-columns:150px 1fr; gap:14px; align-items:start; }
+  @media (max-width:600px){ .glossary .term{ grid-template-columns:1fr; } }
+  .glossary .term .name{ font-family:var(--mono); font-weight:700; color:var(--accent2); }
+  .subject-bar-row{ display:flex; align-items:center; gap:10px; padding:5px 0; font-size:.85rem; }
+  .subject-bar-row .sname{ width:230px; flex:none; color:var(--muted); }
+  .subject-bar-row .strack{ flex:1; height:12px; background:var(--border); border-radius:6px; overflow:hidden; position:relative; }
+  .subject-bar-row .sfill{ height:100%; }
+  .subject-bar-row .sval{ width:46px; text-align:right; font-family:var(--mono); flex:none; }
+  .chance-line{ position:absolute; top:0; bottom:0; left:25%; width:2px; background:var(--text); opacity:.6; }
+  .model-row{ display:flex; align-items:center; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-size:.9rem; }
+  .model-row:last-child{ border-bottom:none; }
+  .model-row .mname{ width:220px; flex:none; }
+  .model-row .mtrack{ flex:1; height:14px; background:var(--border); border-radius:7px; overflow:hidden; }
+  .model-row .mfill{ height:100%; background:var(--accent); }
+  .model-row .mval{ width:56px; text-align:right; font-family:var(--mono); flex:none; }
+</style>
+</head>
+<body>
+<div class="progress-track" id="progressTrack" style="width:0%"></div>
+
+<header>
+  <h1>What Does 47% on MMLU Actually Mean?</h1>
+  <p class="sub">Unpacking a benchmark score: baselines, subject variance, and why "better than random" is more interesting than it sounds.</p>
+</header>
+
+<nav class="toc">
+  <a href="#sec1">1. The number in isolation</a>
+  <a href="#sec2">2. The random baseline</a>
+  <a href="#sec3">3. Play: chance vs. skill</a>
+  <a href="#sec4">4. One score, 57 subjects</a>
+  <a href="#sec5">5. Real data: our own 1.5B model</a>
+  <a href="#sec6">6. Where MMLU sits on the leaderboard</a>
+  <a href="#sec7">7. What MMLU was built to measure — and its cracks</a>
+  <a href="#sec8">8. A checklist before you trust a score</a>
+  <a href="#sec9">9. Check yourself</a>
+</nav>
+
+<main>
+
+<section id="sec1">
+  <h2><span class="num">1</span>The number in isolation</h2>
+  <p>Someone hands you this: <strong>"Our 1.5B model scores 47% on MMLU."</strong> That sentence, on its own, tells you almost nothing. Is 47% good? Bad? Better than a coin flip? Worse than last year's model? You cannot say — not because the number is wrong, but because a benchmark score is only meaningful <em>relative to something else</em>. This lesson builds up the three things you need before a raw percentage becomes a real judgment: a baseline to compare against, an understanding of what's being averaged together, and a sense of what the test was actually designed to catch.</p>
+  <div class="card">
+    <p style="margin-bottom:0"><strong>MMLU</strong> (Massive Multitask Language Understanding) is 57 subjects — from <span class="mono">abstract_algebra</span> to <span class="mono">world_religions</span> — each a set of 4-option multiple-choice questions pulled from real exams: school tests, professional licensing questions, AP exams. The reported "MMLU score" is almost always the plain average of the per-subject accuracies.</p>
+  </div>
+</section>
+
+<section id="sec2">
+  <h2><span class="num">2</span>The random baseline</h2>
+  <p>Every MMLU question has exactly 4 choices. A process that reads nothing and picks a letter at random gets roughly <strong>25%</strong> right, purely by chance. That's the floor — the score you'd expect from a system with <em>zero</em> knowledge of the subject matter, not a system that's bad at it. Those are different things.</p>
+  <div class="formula">points above chance = score − 25%</div>
+  <p>So 47% isn't "47% competent" — it's <strong>22 percentage points above what guessing gives you</strong>, or, expressed as a ratio, <strong>88% better than chance</strong> (47 ÷ 25 = 1.88). Both framings are legitimate; they just answer different questions. The points-above-chance number is the one to use when comparing two scores near each other, because it isolates the part of the score that actually reflects the model doing something.</p>
+  <div class="ok">A model scoring 30% is not "30% as good" as one scoring 60%. In points-above-chance terms it's 5 vs. 35 — a 7x gap, not a 2x one. Always subtract the baseline before comparing ratios.</div>
+</section>
+
+<section id="sec3">
+  <h2><span class="num">3</span>Play: chance vs. skill</h2>
+  <p>Drag the slider to any MMLU score and watch how the "above chance" framing changes the read on the same number.</p>
+  <div class="card">
+    <div class="slider-row">
+      <label for="scoreSlider">Reported MMLU score</label>
+      <input type="range" id="scoreSlider" min="25" max="100" step="1" value="47">
+      <span class="val" id="scoreVal">47%</span>
+    </div>
+    <div id="scoreBars" style="margin-top:14px;"></div>
+    <div id="scoreVerdict" style="margin-top:12px; font-size:.9rem;"></div>
+  </div>
+  <details class="hint">
+    <summary>Why not just start the y-axis at 25% on every chart?</summary>
+    <p>Some dashboards do exactly this — it's a reasonable choice for expert readers. But it can also visually exaggerate small differences, so treat it the same way you'd treat any truncated axis: check the actual numbers, not just how tall the bar looks.</p>
+  </details>
+</section>
+
+<section id="sec4">
+  <h2><span class="num">4</span>One score, 57 subjects</h2>
+  <p>The headline MMLU number is a mean across 57 very different tests. A model can be excellent at <span class="mono">marketing</span> and barely above chance at <span class="mono">abstract_algebra</span>, and the two errors cancel into one tidy-looking average. <strong>The average hides exactly the information you'd want if you were deciding whether to trust this model for a specific job.</strong></p>
+  <div class="card">
+    <p style="margin-bottom:10px;"><strong>Illustrative spread</strong> — a model that averages 47% overall, built from two very different subjects:</p>
+    <div class="subject-bar-row">
+      <div class="sname">clinical_knowledge</div>
+      <div class="strack"><div class="chance-line"></div><div class="sfill" style="width:64%; background:var(--good);"></div></div>
+      <div class="sval">64%</div>
+    </div>
+    <div class="subject-bar-row">
+      <div class="sname">abstract_algebra</div>
+      <div class="strack"><div class="chance-line"></div><div class="sfill" style="width:30%; background:var(--bad);"></div></div>
+      <div class="sval">30%</div>
+    </div>
+    <div class="subject-bar-row">
+      <div class="sname">mean of just these two</div>
+      <div class="strack"><div class="chance-line"></div><div class="sfill" style="width:47%; background:var(--accent);"></div></div>
+      <div class="sval">47%</div>
+    </div>
+    <p style="margin-top:10px; color:var(--muted); font-size:.85rem;">The vertical line marks the 25% random-baseline floor. Clinical knowledge is comfortably above it; abstract algebra is barely clear of it. A single "47%" flattens a model that's actually good at applied medical recall and close to guessing on formal mathematics.</p>
+  </div>
+  <div class="warn">This is a real, recurring pattern, not a cherry-picked example: MMLU's STEM/math subjects (abstract algebra, college mathematics, formal logic) are consistently where small models sit closest to the 25% floor, while humanities and applied-knowledge subjects (marketing, world religions, professional psychology) score much higher — see the real measurements in the next section.</div>
+</section>
+
+<section id="sec5">
+  <h2><span class="num">5</span>Real data: our own 1.5B model</h2>
+  <p>The illustration above is intentionally simplified. Here's the actual per-subject spread from the Day 1 evaluation of <span class="mono">Qwen2.5-1.5B-Instruct-4bit</span> — the exact same 8GB-laptop run from earlier in this series, no cherry-picking. This is what "47%-ish" looks like once you stop averaging it away.</p>
+  <div class="card">
+    <div id="realBars"></div>
+    <p style="margin-top:12px; color:var(--muted); font-size:.85rem;">Sorted lowest to highest. The dotted vertical line is the 25% chance floor. Full 57-subject breakdown lives in <span class="mono">results.json</span> and is reproduced by running <span class="mono">mmlu_stats.py</span> in this folder.</p>
+  </div>
+  <div class="ok" id="realSummary">Loading summary…</div>
+</section>
+
+<section id="sec6">
+  <h2><span class="num">6</span>Where MMLU sits on the leaderboard</h2>
+  <p>Now put a single number in context against other publicly reported MMLU scores. These are widely cited figures for well-known models (5-shot, standard MMLU test set) — useful for calibration, not a precise leaderboard, since exact numbers shift slightly by evaluation harness and prompt format.</p>
+  <div class="card">
+    <div class="model-row"><div class="mname">Random guessing</div><div class="mtrack"><div class="mfill" style="width:25%; background:var(--bad);"></div></div><div class="mval">25%</div></div>
+    <div class="model-row"><div class="mname">GPT-2 (1.5B, 2019)</div><div class="mtrack"><div class="mfill" style="width:32%; background:var(--bad);"></div></div><div class="mval">~32%</div></div>
+    <div class="model-row"><div class="mname">Our 1.5B model (Day 1 run)</div><div class="mtrack"><div class="mfill" style="width:60%;"></div></div><div class="mval">59.6%</div></div>
+    <div class="model-row"><div class="mname">Llama-3-8B (base)</div><div class="mtrack"><div class="mfill" style="width:66%;"></div></div><div class="mval">~66%</div></div>
+    <div class="model-row"><div class="mname">Llama-3-70B (base)</div><div class="mtrack"><div class="mfill" style="width:79%; background:var(--good);"></div></div><div class="mval">~79%</div></div>
+    <div class="model-row"><div class="mname">GPT-4 (2023)</div><div class="mtrack"><div class="mfill" style="width:86%; background:var(--good);"></div></div><div class="mval">~86%</div></div>
+    <div class="model-row"><div class="mname">Human expert baseline (est.)</div><div class="mtrack"><div class="mfill" style="width:89.8%; background:var(--good);"></div></div><div class="mval">~89.8%</div></div>
+  </div>
+  <p>Two things jump out. First, a well-tuned 1.5B model already clears an early 1.5B-parameter model (GPT-2) by roughly 2x the points-above-chance — parameter count alone doesn't explain the gap; training data and instruction-tuning matter enormously. Second, going from a competent small model to GPT-4-class performance is a much bigger jump than going from random guessing to a competent small model — MMLU's headroom above ~85% is genuinely hard to close.</p>
+</section>
+
+<section id="sec7">
+  <h2><span class="num">7</span>What MMLU was built to measure — and its cracks</h2>
+  <p>MMLU (Hendrycks et al., 2020) was designed to test broad academic and professional knowledge <em>acquired during pretraining</em> — the idea being that a model which has genuinely absorbed a lot of text should be able to answer exam-style questions across wildly different domains, the same way a well-read person could attempt questions from a law exam, a nutrition course, and an astronomy final without dedicated study for any of them.</p>
+  <div class="grid2">
+    <div class="card">
+      <h3 style="margin-top:0">What it's good at catching</h3>
+      <ul style="margin:0; padding-left:20px;">
+        <li>Broad factual recall across many domains at once</li>
+        <li>Whether fine-tuning damaged general knowledge (a common regression to watch for)</li>
+        <li>Rough capability tier when comparing models of similar size</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Known criticisms</h3>
+      <ul style="margin:0; padding-left:20px;">
+        <li><strong>Documented answer-key errors</strong> — independent audits have found incorrect or ambiguous ground-truth labels in a meaningful fraction of questions, especially in subjects like virology and professional law</li>
+        <li><strong>Contamination risk</strong> — the questions are public web text; a model trained on a recent internet crawl may have memorized some verbatim, inflating scores without matching reasoning ability</li>
+        <li><strong>Multiple-choice format ceiling</strong> — a model can sometimes pattern-match plausible-looking wrong answers out rather than solving the problem, and can't be asked to explain itself</li>
+        <li><strong>Static snapshot</strong> — it measures 2020-era exam knowledge; it says little about coding, tool use, long conversations, or anything invented after the dataset was built</li>
+      </ul>
+    </div>
+  </div>
+  <p>None of this makes MMLU useless — it's still one of the most widely reported, most comparable benchmarks in the field, which is exactly why it's worth understanding well rather than either worshipping or dismissing the number.</p>
+</section>
+
+<section id="sec8">
+  <h2><span class="num">8</span>A checklist before you trust a score</h2>
+  <div class="card">
+    <ol style="margin:0; padding-left:20px;">
+      <li><strong>What's the baseline?</strong> For 4-way MMLU it's 25%. Subtract it before judging "how good."</li>
+      <li><strong>Is it the overall average, or a breakdown?</strong> Ask for the per-subject or per-category numbers (STEM / humanities / social sciences / other) if the decision depends on a specific domain.</li>
+      <li><strong>Same eval settings?</strong> 0-shot vs. 5-shot, and which prompt template, can move a score by several points. Compare scores only when the setup matches.</li>
+      <li><strong>Any contamination risk?</strong> Was the model plausibly trained on data that includes these exact questions?</li>
+      <li><strong>Does the task match your use case?</strong> A high MMLU score says little about coding ability, following instructions, or staying on-topic in a long conversation — those need their own benchmarks (HumanEval, IFEval, MT-Bench, and similar).</li>
+    </ol>
+  </div>
+</section>
+
+<section id="sec9">
+  <h2><span class="num">9</span>Check yourself</h2>
+  <div class="card" id="quizCard"></div>
+</section>
+
+</main>
+
+<footer>
+  Companion files: <span class="mono">mmlu_stats.py</span> (computes the real per-subject numbers used in Section 5) and
+  <span class="mono">results.json</span> (the actual Day 1 evaluation output, copied in unmodified).
+  This page's charts are static illustrations of the same numbers <span class="mono">mmlu_stats.py</span> prints.
+</footer>
+
+<script>
+// ---------------------------------------------------------------------
+// Section 3: chance-vs-skill slider
+// ---------------------------------------------------------------------
+const scoreSlider = document.getElementById('scoreSlider');
+const scoreVal = document.getElementById('scoreVal');
+const scoreBars = document.getElementById('scoreBars');
+const scoreVerdict = document.getElementById('scoreVerdict');
+const BASELINE = 25;
+
+function renderScore(){
+  const score = parseInt(scoreSlider.value, 10);
+  scoreVal.textContent = score + '%';
+  const above = score - BASELINE;
+  const ratio = (score / BASELINE);
+
+  scoreBars.innerHTML = `
+    <div class="subject-bar-row">
+      <div class="sname">reported score</div>
+      <div class="strack"><div class="chance-line"></div><div class="sfill" style="width:${score}%; background:var(--accent);"></div></div>
+      <div class="sval">${score}%</div>
+    </div>
+    <div class="subject-bar-row">
+      <div class="sname">random baseline</div>
+      <div class="strack"><div class="sfill" style="width:${BASELINE}%; background:var(--muted);"></div></div>
+      <div class="sval">${BASELINE}%</div>
+    </div>
+  `;
+
+  let tier, tierColor;
+  if (above <= 5) { tier = 'Barely above chance — treat this as close to "no real signal" on this subject/set.'; tierColor = 'var(--bad)'; }
+  else if (above <= 20) { tier = 'Modest signal — clearly better than guessing, but far from strong performance.'; tierColor = 'var(--accent2)'; }
+  else if (above <= 45) { tier = 'Solid performance — comfortably demonstrates real capability.'; tierColor = 'var(--good)'; }
+  else { tier = 'Strong performance — well into frontier-model territory for this benchmark.'; tierColor = 'var(--good)'; }
+
+  scoreVerdict.innerHTML = `<strong>${above} points above chance</strong> &nbsp;·&nbsp; <strong>${ratio.toFixed(2)}x</strong> the random baseline &nbsp;·&nbsp; <span style="color:${tierColor}">${tier}</span>`;
+}
+scoreSlider.addEventListener('input', renderScore);
+renderScore();
+
+// ---------------------------------------------------------------------
+// Section 5: real per-subject data (mirrors results.json / mmlu_stats.py)
+// ---------------------------------------------------------------------
+const realSubjects = [
+  ["global_facts", 0.14], ["abstract_algebra", 0.32], ["high_school_physics", 0.32],
+  ["moral_scenarios", 0.34], ["college_mathematics", 0.36], ["high_school_mathematics", 0.36],
+  ["econometrics", 0.38], ["college_chemistry", 0.40], ["machine_learning", 0.40],
+  ["anatomy", 0.42], ["college_physics", 0.42], ["professional_law", 0.42],
+  ["formal_logic", 0.44], ["elementary_mathematics", 0.44], ["professional_accounting", 0.44],
+  ["high_school_statistics", 0.48], ["hellaswag*", 0.48], ["professional_medicine", 0.46],
+  ["virology", 0.46], ["college_computer_science", 0.52], ["high_school_chemistry", 0.56],
+  ["professional_psychology", 0.56], ["public_relations", 0.58], ["conceptual_physics", 0.60],
+  ["electrical_engineering", 0.60], ["prehistory", 0.60], ["security_studies", 0.60],
+  ["human_aging", 0.62], ["moral_disputes", 0.62], ["astronomy", 0.64],
+  ["clinical_knowledge", 0.64], ["college_biology", 0.66], ["high_school_biology", 0.64],
+  ["high_school_macroeconomics", 0.66], ["high_school_us_history", 0.66],
+  ["human_sexuality", 0.68], ["college_medicine", 0.68], ["high_school_european_history", 0.68],
+  ["miscellaneous", 0.68], ["computer_security", 0.76], ["high_school_computer_science", 0.70],
+  ["high_school_geography", 0.72], ["high_school_microeconomics", 0.72], ["medical_genetics", 0.72],
+  ["nutrition", 0.72], ["philosophy", 0.72], ["business_ethics", 0.74], ["jurisprudence", 0.74],
+  ["sociology", 0.74], ["us_foreign_policy", 0.74], ["high_school_government_and_politics", 0.76],
+  ["international_law", 0.78], ["logical_fallacies", 0.78], ["high_school_psychology", 0.80],
+  ["management", 0.80], ["world_religions", 0.82], ["high_school_world_history", 0.82],
+  ["marketing", 0.90]
+].filter(([name]) => name !== "hellaswag*"); // keep to pure MMLU subjects
+
+const realBarsEl = document.getElementById('realBars');
+realSubjects.sort((a,b) => a[1]-b[1]);
+realBarsEl.innerHTML = realSubjects.map(([name, acc]) => {
+  const pct = (acc*100).toFixed(0);
+  const color = acc <= 0.30 ? 'var(--bad)' : (acc >= 0.70 ? 'var(--good)' : 'var(--accent)');
+  return `<div class="subject-bar-row">
+    <div class="sname">${name}</div>
+    <div class="strack"><div class="chance-line"></div><div class="sfill" style="width:${pct}%; background:${color};"></div></div>
+    <div class="sval">${pct}%</div>
+  </div>`;
+}).join('');
+
+const vals = realSubjects.map(s => s[1]);
+const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+const min = Math.min(...vals), max = Math.max(...vals);
+document.getElementById('realSummary').innerHTML =
+  `Mean across ${vals.length} subjects: <strong>${(mean*100).toFixed(1)}%</strong> ` +
+  `(${((mean-0.25)*100).toFixed(1)} points above the 25% floor). ` +
+  `Range: <strong>${(min*100).toFixed(0)}%</strong> (global_facts) to <strong>${(max*100).toFixed(0)}%</strong> (marketing) — ` +
+  `a ${((max-min)*100).toFixed(0)}-point spread hidden inside one averaged number.`;
+
+// ---------------------------------------------------------------------
+// Section 9: quiz
+// ---------------------------------------------------------------------
+const quizQuestions = [
+  {
+    q: "A model scores 47% on MMLU. Roughly how many points above the random-guessing baseline is that?",
+    opts: ["47 points", "22 points", "72 points", "0 — 47% is below average"],
+    correct: 1,
+    explain: "MMLU is 4-way multiple choice, so random guessing scores ~25%. 47 − 25 = 22 points above chance."
+  },
+  {
+    q: "Why can a single overall MMLU score be misleading?",
+    opts: [
+      "It's always measured incorrectly",
+      "It averages 57 very different subjects, hiding large per-subject variance",
+      "It only tests coding ability",
+      "It doesn't use multiple choice questions"
+    ],
+    correct: 1,
+    explain: "The headline number is a mean across 57 subjects that can range from near-chance to near-ceiling for the same model — the average erases that spread."
+  },
+  {
+    q: "In the real Day 1 evaluation data, which pattern held?",
+    opts: [
+      "The model scored evenly across all subjects",
+      "STEM/formal-math subjects scored closest to the chance floor; applied/humanities subjects scored much higher",
+      "Every subject scored above 80%",
+      "The model scored below random guessing everywhere"
+    ],
+    correct: 1,
+    explain: "global_facts (14%) and abstract_algebra (32%) sat near the 25% floor, while marketing (90%) and world_religions (82%) scored far higher — a common pattern for small models."
+  },
+  {
+    q: "Which of these is a legitimate, documented criticism of MMLU?",
+    opts: [
+      "It has no random baseline",
+      "It contains only true/false questions",
+      "Some answer keys are known to contain errors or ambiguous labels",
+      "It cannot be run on any model smaller than 70B parameters"
+    ],
+    correct: 2,
+    explain: "Independent audits have found mislabeled or ambiguous ground-truth answers in a meaningful fraction of MMLU questions, particularly in a few specific subjects."
+  },
+  {
+    q: "Before trusting a reported MMLU score for a purchasing or deployment decision, what should you check?",
+    opts: [
+      "Nothing — the number speaks for itself",
+      "Only the model's total parameter count",
+      "The evaluation settings (shots/prompt), possible contamination, and whether MMLU even matches your use case",
+      "Whether the score is a round number"
+    ],
+    correct: 2,
+    explain: "Eval settings, contamination risk, and task relevance all change what a score actually tells you — the checklist in Section 8 covers each of these."
+  }
+];
+
+const quizCard = document.getElementById('quizCard');
+let qAnswered = 0, qCorrect = 0;
+quizQuestions.forEach((item, qi) => {
+  const block = document.createElement('div');
+  block.style.marginBottom = '26px';
+  block.innerHTML = `<p style="font-weight:600; margin-bottom:10px;">${qi+1}. ${item.q}</p><div class="qopts"></div><div class="quiz-feedback" id="qf-${qi}" style="display:none;"></div>`;
+  const optsEl = block.querySelector('.qopts');
+  item.opts.forEach((opt, oi) => {
+    const btn = document.createElement('button');
+    btn.className = 'quiz-opt';
+    btn.textContent = String.fromCharCode(65+oi) + ') ' + opt;
+    btn.addEventListener('click', () => {
+      if (btn.dataset.locked) return;
+      [...optsEl.children].forEach(b => b.dataset.locked = '1');
+      if (oi === item.correct) { btn.classList.add('correct'); qCorrect++; }
+      else { btn.classList.add('incorrect'); optsEl.children[item.correct].classList.add('correct'); }
+      qAnswered++;
+      const fb = document.getElementById(`qf-${qi}`);
+      fb.style.display = 'block';
+      fb.textContent = item.explain;
+      updateQuizScore();
+    });
+    optsEl.appendChild(btn);
+  });
+  quizCard.appendChild(block);
+});
+const quizScoreEl = document.createElement('div');
+quizScoreEl.style.fontWeight = '600';
+quizCard.appendChild(quizScoreEl);
+function updateQuizScore(){
+  quizScoreEl.textContent = `Score: ${qCorrect} / ${qAnswered} answered (${quizQuestions.length} total)`;
+}
+updateQuizScore();
+
+// ---------------------------------------------------------------------
+// Reading progress bar
+// ---------------------------------------------------------------------
+window.addEventListener('scroll', () => {
+  const h = document.documentElement;
+  const scrolled = (h.scrollTop) / (h.scrollHeight - h.clientHeight) * 100;
+  document.getElementById('progressTrack').style.width = scrolled + '%';
+});
+</script>
+</body>
+</html>
